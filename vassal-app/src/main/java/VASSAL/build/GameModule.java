@@ -84,14 +84,13 @@ import VASSAL.command.Command;
 import VASSAL.command.CommandEncoder;
 import VASSAL.command.Logger;
 import VASSAL.command.NullCommand;
-import VASSAL.configure.AutoConfigurer;
+import VASSAL.configure.StringArrayConfigurer;
 import VASSAL.configure.CompoundValidityChecker;
-import VASSAL.configure.ConfigureTree;
 import VASSAL.configure.MandatoryComponent;
 import VASSAL.configure.SingleChildInstance;
+import VASSAL.configure.ValidationReport;
 import VASSAL.configure.StringConfigurer;
 import VASSAL.configure.TextConfigurer;
-import VASSAL.configure.ValidationReport;
 import VASSAL.configure.password.ToggleablePasswordConfigurer;
 import VASSAL.counters.GamePiece;
 import VASSAL.i18n.ComponentI18nData;
@@ -153,12 +152,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.NoSuchFileException;
 import java.security.SecureRandom;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.List;
-import java.util.Objects;
-import java.util.Random;
+import java.util.*;
 
 import static VASSAL.preferences.Prefs.MAIN_WINDOW_HEIGHT;
 import static VASSAL.preferences.Prefs.MAIN_WINDOW_REMEMBER;
@@ -683,6 +677,8 @@ public class GameModule extends AbstractConfigurable
     }
 
     initIdentityPreferences();
+    // preference to store list of recent games played, which will be displayed under File menu
+    initRecentGamesMenuPreferences();
     Prefs.initSharedGlobalPrefs();
     initGameState();
     initLogger();
@@ -725,6 +721,19 @@ public class GameModule extends AbstractConfigurable
     getPrefs().addOption(Resources.getString("Prefs.personal_tab"), passwordConfigurer);   //$NON-NLS-1$ //$NON-NLS-2$
     getPrefs().addOption(Resources.getString("Prefs.personal_tab"), profile);  //$NON-NLS-1$
     GameModule.setUserId(passwordConfigurer.getValueString());
+  }
+
+  /**
+   * Creates a headless preference that will store the list of recent Games opened
+   */
+  private void initRecentGamesMenuPreferences() {
+    final String[] recentFiles = new String[6]; //test values
+    final StringArrayConfigurer recentGamesmruList = new StringArrayConfigurer("RECENTGAMESMRU_LIST", "", recentFiles);
+    getPrefs().addOption("", recentGamesmruList);
+    //final String[] recentGames = new String[] {"a", "b"};
+    //getPrefs().setValue("RECENTGAMESMRU_LIST", recentGames);  // test values - move this to be triggered when game opened
+
+
   }
 
   /**

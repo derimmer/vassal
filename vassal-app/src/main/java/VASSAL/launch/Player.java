@@ -21,6 +21,9 @@ package VASSAL.launch;
 import java.awt.event.ActionEvent;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import javax.swing.Action;
 import javax.swing.JFrame;
@@ -70,8 +73,12 @@ public class Player extends Launcher {
 
   @Override
   protected void launch() throws IOException {
+
     if (lr.builtInModule) {
       GameModule.init(createModule(createDataArchive()));
+      PlayerWindow pw = GameModule.getGameModule().getPlayerWindow();
+      // adds items to recent game submenu
+      pw.addSubMenu();
 
       if (lr.autoext != null) {
         for (final String ext : lr.autoext) {
@@ -85,6 +92,9 @@ public class Player extends Launcher {
     }
     else {
       GameModule.init(createModule(createDataArchive()));
+      PlayerWindow pw = GameModule.getGameModule().getPlayerWindow();
+      // adds items to recent game submenu
+      pw.addSubMenu();
       createExtensionsLoader().addTo(GameModule.getGameModule());
       Localization.getInstance().translate();
       final GameModule m = GameModule.getGameModule();

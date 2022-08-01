@@ -22,14 +22,12 @@ import VASSAL.build.module.Chatter;
 import VASSAL.build.module.Documentation;
 import VASSAL.configure.ShowHelpAction;
 import VASSAL.i18n.Resources;
+import VASSAL.preferences.Prefs;
 import VASSAL.tools.ApplicationIcons;
 import VASSAL.tools.DebugControls;
 import VASSAL.tools.ErrorDialog;
 import VASSAL.tools.WrapLayout;
-import VASSAL.tools.menu.CheckBoxMenuItemProxy;
-import VASSAL.tools.menu.MenuBarProxy;
-import VASSAL.tools.menu.MenuManager;
-import VASSAL.tools.menu.MenuProxy;
+import VASSAL.tools.menu.*;
 import org.apache.commons.lang3.SystemUtils;
 
 import javax.swing.AbstractAction;
@@ -42,6 +40,9 @@ import java.awt.event.ActionEvent;
 import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class PlayerWindow extends JFrame {
 
@@ -57,6 +58,7 @@ public class PlayerWindow extends JFrame {
 
   protected final JToolBar toolBar = new JToolBar();
   protected final JPanel controlPanel = new JPanel();
+  protected MenuProxy recentMenu;
 
   public PlayerWindow() {
     setTitle(Resources.getString("General.VASSAL"));
@@ -101,6 +103,21 @@ public class PlayerWindow extends JFrame {
     else {
       fileMenu.addSeparator();
       fileMenu.add(mm.addKey("Prefs.edit_preferences"));
+      // add last 6 recent games opened
+      fileMenu.addSeparator();
+      // create the recent games submenu
+      recentMenu = new MenuProxy(Resources.getString("GameState.show_recent_games"));
+      // add recent games to the submenu
+      //final Prefs prefs = GameModule.getGameModule().getPrefs();
+      //final String[] recentValues = (String[]) prefs.getValue("RECENTGAMESMRU_LIST");
+      // convert String array to List
+      //List<String> recentList = new ArrayList<String>(Arrays.asList(recentValues));
+      // add each item in the list to the submenu
+      //for (final String rgame : recentList) {
+      //  recentMenu.add(mm.addKey("Most recent game"));
+      //}
+      // add submenu to file menu
+      fileMenu.add(recentMenu);
       fileMenu.addSeparator();
       fileMenu.add(mm.addKey("General.quit"));
     }
@@ -204,5 +221,18 @@ public class PlayerWindow extends JFrame {
 
   public void addChatter(Chatter chatter) {
     controlPanel.add(chatter, BorderLayout.CENTER);
+  }
+
+  public void  addSubMenu(){
+    final MenuManager mm = MenuManager.getInstance();
+    // add recent games submenu items to file menu
+    final Prefs prefs = GameModule.getGameModule().getPrefs();
+    final String[] recentValues = (String[]) prefs.getValue("RECENTGAMESMRU_LIST");
+    // convert String array to List
+    List<String> recentList = new ArrayList<String>(Arrays.asList(recentValues));
+    // add each item in the list to the submenu
+    for (final String rgame : recentList) {
+      recentMenu.add(mm.addKey(rgame));
+    }
   }
 }

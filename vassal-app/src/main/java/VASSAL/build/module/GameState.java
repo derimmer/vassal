@@ -113,7 +113,7 @@ public class GameState implements CommandEncoder {
   protected Map<String, GamePiece> pieces = new HashMap<>();
   protected List<GameComponent> gameComponents = new ArrayList<>();
   protected List<GameSetupStep> setupSteps = new ArrayList<>();
-  protected Action loadGame, loadGameOld, saveGame, saveGameAs, newGame, closeGame, loadContinuation, loadAndFastForward, loadAndAppend;
+  protected Action loadGame, loadGameOld, saveGame, saveGameAs, newGame, closeGame, loadContinuation, loadAndFastForward, loadAndAppend, recentGames;
   protected String lastSave;
   protected File lastSaveFile = null;
   protected DirectoryConfigurer savedGameDirectoryPreference;
@@ -272,6 +272,28 @@ public class GameState implements CommandEncoder {
     // some languages
     closeGame.putValue(Action.MNEMONIC_KEY, (int)Resources.getString("GameState.close_game.shortcut").charAt(0));
 
+    // file menu item to show list of recent games opened
+    recentGames = new AbstractAction(Resources.getString("GameState.show_recent_games")) {
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public void actionPerformed(ActionEvent e) {
+        GameModule.getGameModule().setGameFileMode(GameModule.GameFileMode.NEW_GAME);
+        setup(false);
+
+        final Logger log = GameModule.getGameModule().getLogger();
+        if (log instanceof BasicLogger) {
+          ((BasicLogger)log).setMultiPlayer(GameModule.getGameModule().isMultiPlayer());
+        }
+
+        setup(true);
+        GameModule.getGameModule().getGameState().freshenStartupGlobalKeyCommands(GameModule.getGameModule());
+      }
+    };
+    // FIXME: setting mnemonic from first letter could cause collisions in
+    // some languages
+    recentGames.putValue(Action.MNEMONIC_KEY, (int)Resources.getString("GameState.show_recent_games_shortcut").charAt(0));
+
     final MenuManager mm = MenuManager.getInstance();
     mm.addAction("GameState.new_game", newGame);
     mm.addAction("GameState.load_game_new", loadGame);
@@ -282,6 +304,7 @@ public class GameState implements CommandEncoder {
     mm.addAction("GameState.close_game", closeGame);
     mm.addAction("GameState.load_and_fast_forward", loadAndFastForward);
     mm.addAction("GameState.load_and_append", loadAndAppend);
+    mm.addAction("GameState.show_recent_games", recentGames);
 
     saveGame.setEnabled(gameStarting);
     saveGameAs.setEnabled(gameStarting);
@@ -1290,6 +1313,7 @@ public class GameState implements CommandEncoder {
         f.getName(),
         new BufferedInputStream(Files.newInputStream(f.toPath()))
       );
+      updaterecentGames(f);
     }
     catch (IOException e) {
       ReadErrorDialog.error(e, f);
@@ -1342,6 +1366,7 @@ public class GameState implements CommandEncoder {
         f.getName(),
         new BufferedInputStream(Files.newInputStream(f.toPath()))
       );
+      updaterecentGames(f);
     }
     catch (IOException e) {
       ReadErrorDialog.error(e, f);
@@ -1551,4 +1576,29 @@ public class GameState implements CommandEncoder {
     }
     return editorSoundDirectoryPreference;
   }
+  private void updaterecentGames(final File f){
+    // retrieve current list of recent games
+    final Prefs prefs = GameModule.getGameModule().getPrefs();
+    final String[] recentValues = (String[]) prefs.getValue("RECENTGAMESMRU_LIST");
+    // search for current game
+    boolean isFound=false;
+    for (int i = 0; i < recentValues.length; i++) {
+      if (recentValues[i].equals(f.getName())) {
+        isFound = true;
+      }
+    }
+    // add new game and bump down previous games; max size =6
+    if(!isFound){
+      List<String> recentlist = new ArrayList<String>();
+      recentlist.add(f.getName());
+      int rv = recentValues.length;
+      int arrayl = rv<5 ? rv : 5;
+      for (int i = 0; i < arrayl; i++) {
+        recentlist.add(recentValues[i]);
+      }
+      // save new list to prefs
+      String[] recentGames = recentlist.toArray(new String[0]);
+      prefs.setValue("RECENTGAMESMRU_LIST", recentGames);
+    }
+ }
 }
