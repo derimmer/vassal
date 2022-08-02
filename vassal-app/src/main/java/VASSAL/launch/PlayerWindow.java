@@ -27,7 +27,10 @@ import VASSAL.tools.ApplicationIcons;
 import VASSAL.tools.DebugControls;
 import VASSAL.tools.ErrorDialog;
 import VASSAL.tools.WrapLayout;
-import VASSAL.tools.menu.*;
+import VASSAL.tools.menu.CheckBoxMenuItemProxy;
+import VASSAL.tools.menu.MenuBarProxy;
+import VASSAL.tools.menu.MenuManager;
+import VASSAL.tools.menu.MenuProxy;
 import org.apache.commons.lang3.SystemUtils;
 
 import javax.swing.AbstractAction;
