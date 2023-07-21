@@ -17,19 +17,28 @@
  */
 package VASSAL.build.module.metadata;
 
-import java.io.BufferedInputStream;
-import java.io.FileNotFoundException;
-import java.io.InputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.file.NoSuchFileException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
+import VASSAL.Info;
+import VASSAL.build.Configurable;
+import VASSAL.build.GameModule;
+import VASSAL.i18n.Resources;
+import VASSAL.i18n.Translation;
+import VASSAL.tools.ArchiveWriter;
+import VASSAL.tools.DataArchive;
+import VASSAL.tools.ErrorDialog;
+import VASSAL.tools.io.FastByteArrayOutputStream;
+import VASSAL.tools.io.FileArchive;
+import VASSAL.tools.io.ZipWriter;
+import VASSAL.tools.version.VersionUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.xml.sax.Attributes;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.DefaultHandler;
 
-import java.util.TimeZone;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParserFactory;
@@ -41,27 +50,18 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.TransformerFactoryConfigurationError;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.xml.sax.Attributes;
-import org.xml.sax.SAXException;
-import org.xml.sax.SAXParseException;
-import org.xml.sax.XMLReader;
-import org.xml.sax.helpers.DefaultHandler;
-
-import VASSAL.Info;
-import VASSAL.build.Configurable;
-import VASSAL.build.GameModule;
-import VASSAL.i18n.Translation;
-import VASSAL.tools.ArchiveWriter;
-import VASSAL.tools.DataArchive;
-import VASSAL.tools.ErrorDialog;
-import VASSAL.tools.io.FastByteArrayOutputStream;
-import VASSAL.tools.io.FileArchive;
-import VASSAL.tools.io.ZipWriter;
+import java.io.BufferedInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.NoSuchFileException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.TimeZone;
 
 /**
  *
@@ -89,6 +89,8 @@ public abstract class AbstractMetaData {
 
   protected static final String ROOT_ELEMENT = "data"; //NON-NLS
   protected static final String VERSION_ELEMENT = "version"; //NON-NLS
+  protected static final String EXTRA1_ELEMENT = "extra1"; //NON-NLS
+  protected static final String EXTRA2_ELEMENT = "extra2"; //NON-NLS
   protected static final String VASSAL_VERSION_ELEMENT = "VassalVersion"; //NON-NLS
   protected static final String MODULE_NAME_ELEMENT = "moduleName"; //NON-NLS
   protected static final String MODULE_VERSION_ELEMENT = "moduleVersion"; //NON-NLS
@@ -101,10 +103,19 @@ public abstract class AbstractMetaData {
   protected static final String BUILDFILE_MODULE_ELEMENT2 = "VASSAL.build.GameModule"; //NON-NLS
   protected static final String BUILDFILE_EXTENSION_ELEMENT = "VASSAL.build.module.ModuleExtension"; //NON-NLS
 
+  // Vassal versions prior to 3.6.11 reversed the language and translated details in the metadata
+  protected static final String BUG_11929_VASSAL_FIX_VERSION = "3.6.11";
+
+  public static boolean isPreBug11929(String version) {
+    return VersionUtils.compareVersions(VersionUtils.truncateToIncrementalVersion(version), BUG_11929_VASSAL_FIX_VERSION) < 0;
+  }
+
   protected String version;
   protected String vassalVersion;
   protected Attribute descriptionAttr;
   protected String lastSaved;
+  protected String extra1;
+  protected String extra2;
 
   public AbstractMetaData() {
     setVassalVersion(Info.getVersion());
@@ -117,6 +128,23 @@ public abstract class AbstractMetaData {
   public void setVersion(String s) {
     version = s;
   }
+
+  public String getExtra1() {
+    return extra1 == null ? "" : extra1;
+  }
+
+  public void setExtra1(String s) {
+    extra1 = s;
+  }
+
+  public String getExtra2() {
+    return extra2 == null ? "" : extra2;
+  }
+
+  public void setExtra2(String s) {
+    extra2 = s;
+  }
+
 
   public String getVassalVersion() {
     return vassalVersion == null ? "" : vassalVersion;
@@ -183,6 +211,18 @@ public abstract class AbstractMetaData {
       if (getVersion() != null) {
         e = doc.createElement(VERSION_ELEMENT);
         e.appendChild(doc.createTextNode(getVersion()));
+        root.appendChild(e);
+      }
+
+      if (getExtra1() != null) {
+        e = doc.createElement(EXTRA1_ELEMENT);
+        e.appendChild(doc.createTextNode(getExtra1()));
+        root.appendChild(e);
+      }
+
+      if (getExtra2() != null) {
+        e = doc.createElement(EXTRA2_ELEMENT);
+        e.appendChild(doc.createTextNode(getExtra2()));
         root.appendChild(e);
       }
 
@@ -365,7 +405,7 @@ public abstract class AbstractMetaData {
      * @return translated value
      */
     public String getLocalizedValue() {
-      final String lang = Locale.getDefault().getLanguage();
+      final String lang = Resources.getLocale().getLanguage(); // Use the current Vassal language, not the default Local language
       final String tx = translations.get(lang);
       return tx == null ? getValue() : tx;
     }
@@ -391,8 +431,8 @@ public abstract class AbstractMetaData {
 
       for (final Map.Entry<String, String> en : translations.entrySet()) {
         e = doc.createElement(prefix);
-        e.setAttribute(LANG_ATTR, en.getValue());
-        e.appendChild(doc.createTextNode(en.getKey()));
+        e.setAttribute(LANG_ATTR, en.getKey());
+        e.appendChild(doc.createTextNode(en.getValue()));
         root.appendChild(e);
       }
     }
@@ -453,6 +493,12 @@ public abstract class AbstractMetaData {
       if (VERSION_ELEMENT.equals(qName)) {
         setVersion(value);
       }
+      else if (EXTRA1_ELEMENT.equals(qName)) {
+        setExtra1(value);
+      }
+      else if (EXTRA2_ELEMENT.equals(qName)) {
+        setExtra2(value);
+      }
       else if (VASSAL_VERSION_ELEMENT.equals(qName)) {
         setVassalVersion(value);
       }
@@ -461,7 +507,13 @@ public abstract class AbstractMetaData {
           setDescription(new Attribute(DESCRIPTION_ELEMENT, value));
         }
         else {
-          descriptionAttr.addTranslation(language, value);
+          // Modules saved prior to 3.6.11 have the language and the translation reversed
+          if (isPreBug11929(getVassalVersion())) {
+            descriptionAttr.addTranslation(value, language);
+          }
+          else {
+            descriptionAttr.addTranslation(language, value);
+          }
         }
       }
       else if (DATE_SAVED_ELEMENT.equals(qName)) {

@@ -31,6 +31,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.GraphicsEnvironment;
 import java.awt.event.FocusListener;
 
 /**
@@ -41,6 +42,7 @@ public class StringConfigurer extends Configurer {
   protected JTextField nameField;
   protected int length;
   protected static final int DEFAULT_LENGTH = 16;
+  protected boolean updateInProgress; /* Used to co-ordinate external updates from List Confogurers using this Configurer */
 
   /** Use {@link #DEFAULT_LENGTH} instead. */
   @Deprecated(since = "2021-12-04", forRemoval = true)
@@ -85,7 +87,9 @@ public class StringConfigurer extends Configurer {
   @Override
   public void setValue(String s) {
     if (!noUpdate && nameField != null) {
+      updateInProgress = true; // Prevent List Configurer causing an infinite update loop
       nameField.setText(s);
+      updateInProgress = false;
     }
     setValue((Object) s);
   }
@@ -127,6 +131,9 @@ public class StringConfigurer extends Configurer {
       });
 
       SwingUtils.allowUndo(nameField);
+      if (!GraphicsEnvironment.isHeadless()) {
+        nameField.setDragEnabled(true);
+      }
 
       final LayerUI<JTextField> layerUI = new ConfigLayerUI(this);
       final JLayer<JTextField> layer = new JLayer<>(nameField, layerUI);
@@ -146,9 +153,11 @@ public class StringConfigurer extends Configurer {
         public void changedUpdate(DocumentEvent e) {}
 
         private void update() {
-          noUpdate = true;
-          setValue(nameField.getText());
-          noUpdate = false;
+          if (!updateInProgress) {
+            noUpdate = true;
+            setValue(nameField.getText());
+            noUpdate = false;
+          }
         }
       });
     }
@@ -165,7 +174,7 @@ public class StringConfigurer extends Configurer {
   }
 
   @Override
-  public void setLabelVisibile(boolean visible) {
+  public void setLabelVisible(boolean visible) {
     if (p instanceof ConfigurerPanel) {
       ((ConfigurerPanel) p).setLabelVisibility(visible);
     }
@@ -212,5 +221,10 @@ public class StringConfigurer extends Configurer {
         g.drawRect(0, 0, d.width - 2, d.height - 2);
       }
     }
+  }
+
+  @Override
+  public void setEnabled(boolean enabled) {
+    nameField.setEnabled(enabled);
   }
 }

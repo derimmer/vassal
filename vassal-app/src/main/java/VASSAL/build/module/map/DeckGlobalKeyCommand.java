@@ -35,6 +35,7 @@ import VASSAL.counters.Deck;
 import VASSAL.counters.DeckVisitorDispatcher;
 import VASSAL.counters.GlobalCommand;
 import VASSAL.counters.GlobalCommandTarget;
+import VASSAL.counters.GlobalCommandVisitor;
 import VASSAL.counters.KeyCommand;
 import VASSAL.counters.PieceFilter;
 import VASSAL.i18n.Resources;
@@ -45,11 +46,10 @@ import VASSAL.tools.NamedKeyStroke;
 import VASSAL.tools.RecursionLimiter.Loopable;
 import VASSAL.tools.SequenceEncoder;
 
+import javax.swing.KeyStroke;
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.List;
-
-import javax.swing.KeyStroke;
 
 /**
  * This version of {@link MassKeyCommand} is added to a {@link DrawPile} (which holds a {@link Deck})
@@ -76,6 +76,7 @@ public class DeckGlobalKeyCommand extends MassKeyCommand {
   public DeckGlobalKeyCommand() {
     globalCommand = new DeckGlobalCommand(this);
     globalCommand.setReportSingle(true);
+    globalCommand.setSuppressSounds(false);
     setConfigureName("");
     setShowDisabledOptions(false);
   }
@@ -172,7 +173,9 @@ public class DeckGlobalKeyCommand extends MassKeyCommand {
       .append(getAttributeValueString(REPORT_FORMAT))
       .append(getLocalizedConfigureName())
       .append(getAttributeValueString(TARGET))
-      .append(getAttributeValueString(REPORT_SINGLE));
+      .append(getAttributeValueString(REPORT_SINGLE))
+      .append(getAttributeValueString(SUPPRESS_SOUNDS));
+
     return se.getValue();
   }
 
@@ -186,6 +189,7 @@ public class DeckGlobalKeyCommand extends MassKeyCommand {
     localizedName = sd.nextToken(getConfigureName());
     setAttribute(TARGET, sd.nextToken(""));
     setAttribute(REPORT_SINGLE, sd.nextBoolean(true));
+    setAttribute(SUPPRESS_SOUNDS, sd.nextBoolean(false));
   }
 
   @Override
@@ -200,6 +204,7 @@ public class DeckGlobalKeyCommand extends MassKeyCommand {
       Resources.getString("Editor.DeckGlobalKeyCommand.affects"), //$NON-NLS-1$
       Resources.getString("Editor.report_format"), //$NON-NLS-1$
       Resources.getString("Editor.MassKey.suppress"),
+      Resources.getString("Editor.MassKey.suppress_sounds")
     };
   }
 
@@ -215,6 +220,7 @@ public class DeckGlobalKeyCommand extends MassKeyCommand {
       DECK_COUNT,
       REPORT_FORMAT,
       REPORT_SINGLE,
+      SUPPRESS_SOUNDS
     };
   }
 
@@ -230,6 +236,7 @@ public class DeckGlobalKeyCommand extends MassKeyCommand {
       PropertyExpression.class,
       DeckPolicyConfig2.class,
       ReportFormatConfig.class,
+      Boolean.class,
       Boolean.class
     };
   }
@@ -292,14 +299,14 @@ public class DeckGlobalKeyCommand extends MassKeyCommand {
       final String reportText = reportFormat.getText(source, (Auditable) this, "Editor.report_format");
       Command c;
       if (reportText.length() > 0) {
-        c = new Chatter.DisplayText(GameModule.getGameModule().getChatter(), "*" + reportText);
+        c = new Chatter.DisplayText(GameModule.getGameModule().getChatter(), "* " + reportText);
         c.execute();
       }
       else {
         c = new NullCommand();
       }
 
-      final Visitor visitor = new Visitor(c, filter, keyStroke);
+      final GlobalCommandVisitor visitor = new GlobalCommandVisitor(c, filter, keyStroke, null, owner, getSelectFromDeck());
       final DeckVisitorDispatcher dispatcher = new DeckVisitorDispatcher(visitor);
 
       dispatcher.accept(d);

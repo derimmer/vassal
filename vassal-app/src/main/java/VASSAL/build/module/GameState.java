@@ -52,7 +52,6 @@ import VASSAL.tools.io.ZipWriter;
 import VASSAL.tools.menu.MenuManager;
 import VASSAL.tools.swing.Dialogs;
 import VASSAL.tools.version.VersionUtils;
-
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.LoggerFactory;
@@ -124,6 +123,11 @@ public class GameState implements CommandEncoder {
   protected String loadComments;
   protected boolean loadingInBackground = false;
   private boolean fastForwarding = false;
+  private final AttachmentManager attachmentManager = new AttachmentManager();
+
+  public AttachmentManager getAttachmentManager() {
+    return attachmentManager;
+  }
 
   /**
    * @return true if currently loading in background
@@ -426,14 +430,28 @@ public class GameState implements CommandEncoder {
    * assuming they haven't been applied already.
    * @param target the Game Module to be thoroughly reamed for SGKCs
    */
-  private boolean applyStartupGlobalKeyCommands(AbstractBuildable target) {
+  private boolean applyStartupGlobalKeyCommands(AbstractBuildable target, boolean playerChange) {
     boolean any = false;
+
+    // Ensure auto-attachments all connected (doing it here ensures any SetupStack pieces with Attachment traits
+    // get their auto-attach processed before any actual SGKCs are executed).
+    final Command c = attachmentManager.doAutoAttachments();
+    if ((c != null) && !c.isNull()) {
+      GameModule.getGameModule().sendAndLog(c);
+      any = true;
+    }
+
     for (final Buildable b : target.getBuildables()) {
       if (b instanceof StartupGlobalKeyCommand) {
-        any |= ((StartupGlobalKeyCommand)b).applyIfNotApplied();
+        if (playerChange) {
+          any |= ((StartupGlobalKeyCommand) b).applyPlayerChange();
+        }
+        else {
+          any |= ((StartupGlobalKeyCommand) b).applyIfNotApplied();
+        }
       }
       else if (b instanceof AbstractBuildable) {
-        any |= applyStartupGlobalKeyCommands((AbstractBuildable)b);
+        any |= applyStartupGlobalKeyCommands((AbstractBuildable)b, playerChange);
       }
     }
     return any;
@@ -442,8 +460,8 @@ public class GameState implements CommandEncoder {
   /**
    * Applies all of the Startup Global Key Commands in order, and then blocks undo past this point if any were applied.
    */
-  private void doStartupGlobalKeyCommands() {
-    if (applyStartupGlobalKeyCommands(GameModule.getGameModule())) {
+  public void doStartupGlobalKeyCommands(boolean playerChange) {
+    if (applyStartupGlobalKeyCommands(GameModule.getGameModule(), playerChange)) {
       // This "finished" command blocks undoing past Startup Global Key Commands
       final FinishedStartupGlobalKeyCommands finished = new FinishedStartupGlobalKeyCommands();
       finished.execute();
@@ -471,7 +489,7 @@ public class GameState implements CommandEncoder {
   public static final int NO_NEED_TO_SAVE = (~JOptionPane.NO_OPTION & 0x01) | (~JOptionPane.YES_OPTION & 0x02) | (~JOptionPane.CANCEL_OPTION & 0x04) | (~JOptionPane.CLOSED_OPTION & 0x08);
 
   /**
-   * Offers player the chance to save the game if an unsaved one is active & modified
+   * Offers player the chance to save the game if an unsaved one is active and modified
    * @return Whether Yes, No, or Cancel was selected (if Yes was selected, game is saved before returning result). Or NO_NEED_TO_SAVE if game wasn't in a state needing to be saved.
    */
   public int maybeSaveGame() {
@@ -519,6 +537,7 @@ public class GameState implements CommandEncoder {
 
     if (!gameStarting) {
       pieces.clear();
+      attachmentManager.clearAll();
     }
 
     newGame.setEnabled(!gameStarting);
@@ -548,13 +567,21 @@ public class GameState implements CommandEncoder {
 
     if (gameStarted) {
       if (gameStarting) {
+
         // Things that we invokeLater
         SwingUtilities.invokeLater(fastForwarding ? () -> {
+          // Ask the IndexManager to rebuild all indexes so at-start stack pieces are all included
+          // This is required for any SGKC's to work
+          GameModule.getGameModule().getIndexManager().rebuild();
           // Apply all of the startup global key commands, in order
-          doStartupGlobalKeyCommands();
+          doStartupGlobalKeyCommands(false);
         } : () -> {
+          // Ask the IndexManager to rebuild all indexes so at-start stack pieces are all included
+          // This is required for any SGKC's to work
+          GameModule.getGameModule().getIndexManager().rebuild();
+
           // Apply all of the startup global key commands, in order
-          doStartupGlobalKeyCommands();
+          doStartupGlobalKeyCommands(false);
 
           // If we're starting a new session, prompt to create a new logfile.
           // But NOT if we're starting a session by *replaying* a logfile -- in that case we'd get the reminder at the
@@ -567,6 +594,11 @@ public class GameState implements CommandEncoder {
           }
         });
       }
+    }
+
+    if (!gameStarting) {
+      // Clear the indexes on game shutdown to free memory during a PreDefinedSetup refresh loop.
+      GameModule.getGameModule().getIndexManager().clearAll();
     }
   }
 
@@ -599,6 +631,8 @@ public class GameState implements CommandEncoder {
     String saveModuleVersion = "?";
     String saveVassalVersion = "?";
     final GameModule g = GameModule.getGameModule();
+
+    loadComments = saveData.getLocalizedDescription();
 
     // Was the Module Data that created the save stored in the save? (Vassal 3.0+)
     if (saveData.getModuleData() != null) {
@@ -785,6 +819,17 @@ public class GameState implements CommandEncoder {
         else {
           loadGameInBackground(f);
         }
+      }
+    }
+    catch (IllegalStateException e) {
+      final String msg = e.getMessage();
+      if (msg != null && msg.startsWith(Resources.getString("Decorator.no_state_for_trait"))) { //BR//
+        WarningDialog.show("GameState.probably_wrong_version"); //NON-NLS
+        gameStarted = false;
+        setup(false);
+      }
+      else {
+        throw e;
       }
     }
     catch (IOException e) {
@@ -1076,6 +1121,7 @@ public class GameState implements CommandEncoder {
     if (p.getId() == null) {
       p.setId(getNewPieceId());
     }
+    attachmentManager.pieceAdded(p);
     pieces.put(p.getId(), p);
   }
 
@@ -1092,6 +1138,12 @@ public class GameState implements CommandEncoder {
   public void removePiece(String id) {
     if (id != null) {
       pieces.remove(id);
+    }
+  }
+
+  public void removePiece(GamePiece piece) {
+    if (piece != null) {
+      removePiece(piece.getId());
     }
   }
 

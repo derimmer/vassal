@@ -41,7 +41,9 @@ import VASSAL.tools.ErrorDialog;
 import VASSAL.tools.NamedKeyStroke;
 import VASSAL.tools.SequenceEncoder;
 import VASSAL.tools.swing.SwingUtils;
+import org.apache.commons.lang3.ArrayUtils;
 
+import javax.swing.KeyStroke;
 import java.awt.Component;
 import java.awt.Point;
 import java.util.ArrayList;
@@ -49,10 +51,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
-
-import javax.swing.KeyStroke;
-
-import org.apache.commons.lang3.ArrayUtils;
 
 import static VASSAL.counters.BasicPiece.BASIC_NAME;
 import static VASSAL.counters.BasicPiece.PIECE_NAME;
@@ -75,6 +73,7 @@ public abstract class Decorator extends AbstractImageFinder implements EditableP
   PropertyExporter, SearchTarget, ImageSearchTarget {
 
   protected GamePiece piece;
+  private GamePiece innermost;
   private Decorator dec;
   private boolean selected = false;
 
@@ -84,6 +83,8 @@ public abstract class Decorator extends AbstractImageFinder implements EditableP
     if (p != null) {
       p.setProperty(Properties.OUTER, this);
     }
+
+    innermost = getInnermost(p);
   }
 
   /** @param m Each GamePiece belongs to a single {@link Map}. Default behavior for a trait is to pass the new map inward toward the BasicPiece. */
@@ -97,7 +98,7 @@ public abstract class Decorator extends AbstractImageFinder implements EditableP
    * eventually reach it. */
   @Override
   public Map getMap() {
-    return piece.getMap();
+    return (innermost != null) ? innermost.getMap() : piece.getMap();
   }
 
   /**
@@ -125,7 +126,7 @@ public abstract class Decorator extends AbstractImageFinder implements EditableP
   /** @return the {@link Stack} to which this piece belongs, if any. Default behavior for a trait is to ask the next member inward. */
   @Override
   public Stack getParent() {
-    return piece.getParent();
+    return (innermost != null) ? innermost.getParent() : piece.getParent();
   }
 
   /**
@@ -315,7 +316,7 @@ public abstract class Decorator extends AbstractImageFinder implements EditableP
    */
   @Override
   public Point getPosition() {
-    return piece.getPosition();
+    return (innermost != null) ? innermost.getPosition() : piece.getPosition();
   }
 
   /**
@@ -345,7 +346,7 @@ public abstract class Decorator extends AbstractImageFinder implements EditableP
       piece.setState(st.nextToken());
     }
     catch (NoSuchElementException e) {
-      throw new IllegalStateException("No state for Decorator=" + myGetType());
+      throw new IllegalStateException(Resources.getString("Decorator.no_state_for_trait") + myGetType());
     }
   }
 
@@ -440,6 +441,27 @@ public abstract class Decorator extends AbstractImageFinder implements EditableP
   protected abstract KeyCommand[] myGetKeyCommands();
 
   /**
+   * @param menuText menu text
+   * @param keystroke keystroke or named keystroke
+   * @return true if a context menu item should be displayed for the text/keystroke combination
+   */
+  protected boolean isMenuCommand(String menuText, NamedKeyStroke keystroke) {
+    if ((menuText == null) || menuText.isEmpty()) return false;
+    return (keystroke != null) && !keystroke.isNull();
+  }
+
+  /**
+   * If text/keystroke pair is valid, add it to the provided list
+   * @param list
+   * @param menuText
+   * @param keyStroke
+   */
+  protected void addMenuCommand(List<KeyCommand> list, String menuText, NamedKeyStroke keyStroke) {
+    if (!isMenuCommand(menuText, keyStroke)) return;
+    list.add(new KeyCommand(menuText, keyStroke, Decorator.getOutermost(this), (TranslatablePiece)this));
+  }
+
+  /**
    * @return The set of key commands that will populate the piece's right-click menu.
    * The key commands are accessible through the {@link Properties#KEY_COMMANDS} property.
    * The commands for a Trait/{@link Decorator} are a composite of {@link #myGetKeyCommands} and the
@@ -501,7 +523,7 @@ public abstract class Decorator extends AbstractImageFinder implements EditableP
    */
   @Override
   public String getId() {
-    return piece.getId();
+    return (innermost != null) ? innermost.getId() : piece.getId();
   }
 
   /**
@@ -554,6 +576,22 @@ public abstract class Decorator extends AbstractImageFinder implements EditableP
       p = ((Decorator) p).piece;
     }
     return null;
+  }
+
+  /**
+   * @return Working inward from this Trait/Decorator, finds and returns a list of all Decorators within the given GamePiece
+   * that is an instance of the given Class.
+   */
+  public static List<GamePiece> getDecorators(GamePiece p, Class<?> type) {
+    final ArrayList<GamePiece> list = new ArrayList<>();
+    GamePiece piece = p;
+    while (piece instanceof Decorator) {
+      if (type.isInstance(piece)) {
+        list.add(piece);
+      }
+      piece = ((Decorator) piece).getInner();
+    }
+    return list;
   }
 
 
@@ -732,6 +770,7 @@ public abstract class Decorator extends AbstractImageFinder implements EditableP
     String matOldOffsetY = "";
     final Map m = p.getMap();
     final Point pos = p.getPosition();
+    final String deckName = p.getParent() instanceof Deck ? ((Deck) p.getParent()).getDeckName() : "";
     Command comm = new NullCommand();
 
     if (m != null) {
@@ -748,7 +787,7 @@ public abstract class Decorator extends AbstractImageFinder implements EditableP
 
       if (GameModule.getGameModule().isMatSupport()) {
         if (Boolean.TRUE.equals(p.getProperty(MatCargo.IS_CARGO))) {
-          final MatCargo cargo = (MatCargo) Decorator.getDecorator(p, MatCargo.class);
+          final MatCargo cargo = (MatCargo) Decorator.getDecorator(Decorator.getOutermost(p), MatCargo.class);
           if (cargo != null) {
             final GamePiece mat = cargo.getMat();
             if (mat != null) {
@@ -772,6 +811,7 @@ public abstract class Decorator extends AbstractImageFinder implements EditableP
     comm = comm.append(container.setPersistentProperty(BasicPiece.OLD_BOARD, boardName));
     comm = comm.append(container.setPersistentProperty(BasicPiece.OLD_ZONE, zoneName));
     comm = comm.append(container.setPersistentProperty(BasicPiece.OLD_LOCATION_NAME, locationName));
+    comm = comm.append(container.setPersistentProperty(BasicPiece.OLD_DECK_NAME, deckName));
     if (GameModule.getGameModule().isMatSupport()) {
       comm = comm.append(container.setPersistentProperty(BasicPiece.OLD_MAT, matName));
       comm = comm.append(container.setPersistentProperty(BasicPiece.OLD_MAT_ID, matID));
@@ -933,7 +973,7 @@ public abstract class Decorator extends AbstractImageFinder implements EditableP
       s += " - " + command;
     }
     if (key != null) {
-      s += " - " + key.getDesc();
+      s += (s.isEmpty() ? " - " : " => ") + key.getDesc();
     }
     return s;
   }

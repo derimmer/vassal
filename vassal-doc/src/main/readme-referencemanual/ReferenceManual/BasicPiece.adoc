@@ -41,6 +41,7 @@ _Choosing an image that has already been loaded into the module._
 
 The following <<Properties.adoc#top,Properties>> are defined in a Basic Piece, meaning that any trait in the piece can refer to them:
 
+[#properties]
 * _BasicName_ contains the name of Basic Piece trait. Can be overridden by adding a <<BasicName.adoc#top, Basic Name>> trait to the piece.
 * _PieceName_ contains the full name of the piece, including any additional strings added by e.g.
 <<Layer.adoc#top,Layer>> or <<Label.adoc#top,Text Label>> traits (Note the distinction from the use of $pieceName$ with lowercase p _inside_ the <<TextLabel.adoc#top,Text Label>> trait and in a <<Map.adoc#top, Map's>> movement report fields -- those are similar but separate uses specific to those situations. The general-purpose property for a piece's traits to use to get the piece's own full name, as well as for <<PropertyMatchExpression.adoc#top, Property Match Expressions>> selecting for target pieces in a <<GlobalKeyCommand.adoc#top, Global Key Command>>, is _PieceName_ with the capital P).
@@ -58,7 +59,11 @@ If the piece is in a <<ZonedGrid.adoc#top,Zone>> in a Multi-Zone Grid, then whet
 * _PieceId_ contains a string that uniquely defines the source of the piece.
 All pieces sourced from the same <<PieceWindow.adoc#top,Game Piece Palette>> slot will have the same PieceId string.
 * _DrawingMouseover_ contains _true_ when a <<MouseOver.adoc#top, Mouseover Stack Viewer>> is currently being drawn, and contains _false_ otherwise.
-* _DrawingMouseoverIndex_ contains 2 when a <<MouseOver.adoc#top, Mouseover Stack Viewer>> is currently being drawn, and contains 1 otherwise. This can be used e.g. in the _Follows Expression_ field of a <<Layer.adoc#top, Layer trait>> to draw a different image for the Mouseover than is normally used when drawing the piece on the map.
+* _DrawingMouseoverIndex_ contains 2 when a <<MouseOver.adoc#top, Mouseover Stack Viewer>> is currently being drawn, and contains 1 otherwise. This can be used, e.g., in the _Follows Expression_ field of a <<Layer.adoc#top, Layer trait>> to draw a different image for the Mouseover than is normally used when drawing the piece on the map.
+
+* _StackPos_ contains the position of the piece within the piece's current Stack, 1 being the top. If the piece is a Non-stacking piece, StackPos will return 1.
+
+* _StackSize_ contains the number of pieces in the piece's current Stack. If the piece is a Non-stacking piece, StackSize will return 1.
 
 The following <<Properties.adoc#top,Properties>> are defined after a piece is moved, either manually by drag-and-drop movement or by a <<SendToLocation.adoc#top,Send To Location>> trait:
 
@@ -68,6 +73,7 @@ The following <<Properties.adoc#top,Properties>> are defined after a piece is mo
 * _OldZone_ contains the name of the previous <<ZonedGrid.adoc#top,Zone>>
 * _OldX_ contains the previous map X coordinate
 * _OldY_ contains the previous map Y coordinate
+* _OldDeckName_ contains the name of any deck the piece was in before its last move (will be an empty string if piece wasn't in a deck)
 * _OldMat_ contains the previous <<Mat.adoc#top,Mat>>, if this is a <<MatCargo.adoc#top, Mat Cargo>> piece.
 * _OldMatID_ contains the previous <<Mat.adoc#top,Mat>> ID, if this is a <<MatCargo.adoc#top, Mat Cargo>> piece.
 * _OldMatPieceName_ contains the previous Mat's Piece Name

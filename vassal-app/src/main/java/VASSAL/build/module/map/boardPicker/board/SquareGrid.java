@@ -17,12 +17,23 @@
  */
 package VASSAL.build.module.map.boardPicker.board;
 
-import static java.lang.Math.abs;
-import static java.lang.Math.floor;
-import static java.lang.Math.max;
-import static java.lang.Math.min;
-import static java.lang.Math.round;
+import VASSAL.build.AbstractConfigurable;
+import VASSAL.build.AutoConfigurable;
+import VASSAL.build.Buildable;
+import VASSAL.build.module.documentation.HelpFile;
+import VASSAL.build.module.map.boardPicker.board.mapgrid.GridContainer;
+import VASSAL.build.module.map.boardPicker.board.mapgrid.GridNumbering;
+import VASSAL.build.module.map.boardPicker.board.mapgrid.SquareGridNumbering;
+import VASSAL.configure.AutoConfigurer;
+import VASSAL.configure.ColorConfigurer;
+import VASSAL.configure.Configurer;
+import VASSAL.configure.ConfigurerFactory;
+import VASSAL.configure.StringEnum;
+import VASSAL.configure.TranslatingStringEnumConfigurer;
+import VASSAL.configure.VisibilityCondition;
+import VASSAL.i18n.Resources;
 
+import javax.swing.JButton;
 import java.awt.Color;
 import java.awt.Container;
 import java.awt.Graphics;
@@ -35,21 +46,11 @@ import java.awt.geom.Area;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.swing.JButton;
-
-import VASSAL.build.AbstractConfigurable;
-import VASSAL.build.AutoConfigurable;
-import VASSAL.build.Buildable;
-import VASSAL.build.module.documentation.HelpFile;
-import VASSAL.build.module.map.boardPicker.board.mapgrid.GridContainer;
-import VASSAL.build.module.map.boardPicker.board.mapgrid.GridNumbering;
-import VASSAL.build.module.map.boardPicker.board.mapgrid.SquareGridNumbering;
-import VASSAL.configure.AutoConfigurer;
-import VASSAL.configure.ColorConfigurer;
-import VASSAL.configure.Configurer;
-import VASSAL.configure.StringEnum;
-import VASSAL.configure.VisibilityCondition;
-import VASSAL.i18n.Resources;
+import static java.lang.Math.abs;
+import static java.lang.Math.floor;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+import static java.lang.Math.round;
 
 public class SquareGrid extends AbstractConfigurable implements GeometricGrid, GridEditor.EditableGrid {
   protected double dx = 48.0;
@@ -145,6 +146,16 @@ public class SquareGrid extends AbstractConfigurable implements GeometricGrid, G
     }
   }
 
+  public static final String[] RANGE_OPTIONS = { RANGE_METRIC, RANGE_MANHATTAN };
+  public static final String[] RANGE_KEYS    = { "Editor.Grid.euclidean", "Editor.Grid.manhattan"};
+
+  public static class RangeConfig implements ConfigurerFactory {
+    @Override
+    public Configurer getConfigurer(AutoConfigurable c, String key, String name) {
+      return new TranslatingStringEnumConfigurer(key, name, RANGE_OPTIONS, RANGE_KEYS);
+    }
+  }
+
   @Override
   public String[] getAttributeNames() {
     return new String[] {
@@ -186,7 +197,7 @@ public class SquareGrid extends AbstractConfigurable implements GeometricGrid, G
       Integer.class,
       Double.class,
       Double.class,
-      RangeOptions.class,
+      RangeConfig.class,
       Boolean.class,
       Boolean.class,
       Boolean.class,
@@ -371,6 +382,26 @@ public class SquareGrid extends AbstractConfigurable implements GeometricGrid, G
     }
   }
 
+  /**
+   * Return the largest number of pixels that a range unit can have
+   * NOTE this is just an estimate and is used a a heuristic in the GKC fast match process, so it MUST encompass all
+   * units that could be in range, but may be larger.
+   *
+   * For Euclidean style, Largest range unit is the diagonal length of a cell unit
+   * For Manhattan style, it is the length of the longest side
+   *
+   * @return max pixels per range
+   */
+  @Override
+  public int getMaxPixelsPerRangeUnit(Point p) {
+    if (rangeOption.equals(RANGE_METRIC)) {
+      return (int) floor(Math.sqrt(dx * dx + dy * dy) + 0.5);
+    }
+    else {
+      return (int) floor(max(dx, dy) + 1.0);
+    }
+  }
+
   @Override
   public Area getGridShape(Point center, int range) {
     Area shape = shapeCache.get(range);
@@ -405,8 +436,9 @@ public class SquareGrid extends AbstractConfigurable implements GeometricGrid, G
   }
 
   @Override
-  public Point snapTo(Point p) {
-    if (! snapTo) {
+  public Point snapTo(Point p, boolean force, boolean onlyCenter) {
+
+    if (!snapTo && !force) {
       return p;
     }
 
@@ -423,7 +455,7 @@ public class SquareGrid extends AbstractConfigurable implements GeometricGrid, G
     Point snap = null;
 
     if (!cornersLegal || !edgesLegal) {
-      if (cornersLegal) {
+      if (cornersLegal && !onlyCenter) {
         if (ny % 2 == 0) {  // on a cell center
           nx = 2 * (int) round(offsetX / dx);
         }
@@ -431,7 +463,7 @@ public class SquareGrid extends AbstractConfigurable implements GeometricGrid, G
           nx = 1 + 2 * (int) round(offsetX / dx - 0.5);
         }
       }
-      else if (edgesLegal) {
+      else if (edgesLegal && !onlyCenter) {
         if (ny % 2 == 0) {
           if (nx % 2 == 0) { // Cell center
             nx = 2 * (int) round(offsetX / dx);
@@ -465,6 +497,16 @@ public class SquareGrid extends AbstractConfigurable implements GeometricGrid, G
       snap = new Point(origin.x + (int)round(nx * dx / 2), origin.y + (int) round(ny * dy / 2));
     }
     return snap;
+  }
+
+  @Override
+  public Point snapTo(Point p, boolean force) {
+    return snapTo(p, force, false);
+  }
+
+  @Override
+  public Point snapTo(Point p) {
+    return snapTo(p, false, false);
   }
 
   @Override

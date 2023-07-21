@@ -73,14 +73,16 @@ public class Resources {
   protected final List<Locale> supportedLocales =
     new ArrayList<>(Arrays.asList(
       Locale.ENGLISH,
-      Locale.GERMAN,
+      Locale.forLanguageTag("zh"),  // Chinese //$NON-NLS-1$
+      Locale.forLanguageTag("nl"),  // Dutch   //$NON-NLS-1$
       Locale.FRENCH,
+      Locale.GERMAN,
       Locale.ITALIAN,
-      new Locale("es"), // Spanish //$NON-NLS-1$
       Locale.JAPANESE,
-      new Locale("nl")  // Dutch //$NON-NLS-1$
-    )
-    );
+      Locale.forLanguageTag("pl"),  // Polish  //$NON-NLS-1$
+      Locale.forLanguageTag("es"),  // Spanish //$NON-NLS-1$
+      Locale.forLanguageTag("da")   // Danish  //$NON-NLS-1$
+    ));
 
   protected Locale locale = Locale.getDefault();
   protected static final String DATE_FORMAT = "{0,date}"; //$NON-NLS-1$

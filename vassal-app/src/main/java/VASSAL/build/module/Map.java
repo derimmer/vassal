@@ -267,6 +267,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
   protected boolean allowMultiple = false;
   protected VisibilityCondition visibilityCondition;
   protected DragGestureListener dragGestureListener;
+  protected boolean onlyReportChangedLocation = false;
   protected String moveWithinFormat;
   protected String moveToFormat;
   protected String createFormat;
@@ -284,8 +285,30 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
 
   protected String description;
 
+  protected Point preferredCenter = new Point(0, 0);
+
   private IntConfigurer preferredScrollConfig;
   private DoubleConfigurer preferredScrollRateConfig;
+
+  private boolean anyMouseoverDrawn = false;
+
+  public boolean isAnyMouseoverDrawn() {
+    return anyMouseoverDrawn;
+  }
+
+  public void setAnyMouseoverDrawn(boolean flag) {
+    anyMouseoverDrawn = flag;
+  }
+
+  private boolean drawingMouseOver = false;
+
+  public boolean isDrawingMouseOver() {
+    return drawingMouseOver;
+  }
+
+  public void setDrawingMouseOver(boolean flag) {
+    drawingMouseOver = flag;
+  }
 
   public Map() {
     getView();
@@ -347,6 +370,20 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
   }
 
   /**
+   * @return true if the map marks pieces as moved
+   */
+  public boolean isMarkMoved() {
+    return !markMovedOption.equals(GlobalOptions.NEVER);
+  }
+
+  /**
+   * @return true if auto-reporting moves should only happen if location changed
+   */
+  public boolean isOnlyReportChangedLocation() {
+    return onlyReportChangedLocation;
+  }
+
+  /**
    * Global Change Reporting control - used by Global Key Commands (see {@link GlobalCommand}) to
    * temporarily disable reporting while they run, if their "Suppress individual reports" option is selected.
    * @param b true to turn global change reporting on, false to turn it off.
@@ -382,6 +419,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
   public static final String ICON = "icon"; //$NON-NLS-1$
   public static final String HOTKEY = "hotkey"; //$NON-NLS-1$
   public static final String SUPPRESS_AUTO = "suppressAuto"; //$NON-NLS-1$
+  public static final String ONLY_REPORT_CHANGED_LOCATION = "onlyReportChangedLocation"; //NON-NLS
   public static final String MOVE_WITHIN_FORMAT = "moveWithinFormat"; //$NON-NLS-1$
   public static final String MOVE_TO_FORMAT = "moveToFormat"; //$NON-NLS-1$
   public static final String CREATE_FORMAT = "createFormat"; //$NON-NLS-1$
@@ -518,6 +556,12 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
         moveWithinFormat = ""; //$NON-NLS-1$
       }
     }
+    else if (ONLY_REPORT_CHANGED_LOCATION.equals(key)) {
+      if (value instanceof String) {
+        value = Boolean.valueOf((String) value);
+      }
+      onlyReportChangedLocation = (Boolean) value;
+    }
     else if (MOVE_WITHIN_FORMAT.equals(key)) {
       moveWithinFormat = (String) value;
     }
@@ -626,6 +670,9 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
     }
     else if (USE_LAUNCH_BUTTON.equals(key)) {
       return String.valueOf(useLaunchButtonEdit);
+    }
+    else if (ONLY_REPORT_CHANGED_LOCATION.equals(key)) {
+      return String.valueOf(onlyReportChangedLocation);
     }
     else if (MOVE_WITHIN_FORMAT.equals(key)) {
       return getMoveWithinFormat();
@@ -1166,6 +1213,11 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
     return null;
   }
 
+  public int getMaxPixelsPerRangeUnit(Point p) {
+    final Board b = findBoard(p);
+    return b == null ? null : b.getGrid().getMaxPixelsPerRangeUnit(p);
+  }
+
   /**
    * Searches our list of boards for one with the given name
    * @param name Board Name
@@ -1229,7 +1281,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    * @see Board#snapTo
    * @see VASSAL.build.module.map.boardPicker.board.MapGrid#snapTo
    */
-  public Point snapTo(Point p) {
+  public Point snapTo(Point p, boolean force, boolean onlyCenter) {
     Point snap = new Point(p);
 
     final Board b = findBoard(p);
@@ -1237,7 +1289,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
 
     final Rectangle r = b.bounds();
     snap.translate(-r.x, -r.y);
-    snap = b.snapTo(snap);
+    snap = b.snapTo(snap, force, onlyCenter);
     snap.translate(r.x, r.y);
 
     //CC bugfix13409
@@ -1246,7 +1298,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
     if (bSnappedTo != null && !b.equals(bSnappedTo)) {
       final Rectangle rSnappedTo = bSnappedTo.bounds();
       snap.translate(-rSnappedTo.x, -rSnappedTo.y);
-      snap = bSnappedTo.snapTo(snap);
+      snap = bSnappedTo.snapTo(snap, force, onlyCenter);
       snap.translate(rSnappedTo.x, rSnappedTo.y);
     }
     // RFE 882378
@@ -1272,10 +1324,19 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
     return snap;
   }
 
-  /**
-   * @return The buffer of empty space around the boards in the Map window,
-   * in component coordinates at 100% zoom
-   */
+  public Point snapTo(Point p, boolean force) {
+    return snapTo(p, force, true);
+  }
+
+  public Point snapTo(Point p) {
+    return snapTo(p, false, false);
+  }
+
+
+    /**
+     * @return The buffer of empty space around the boards in the Map window,
+     * in component coordinates at 100% zoom
+     */
   public Dimension getEdgeBuffer() {
     return new Dimension(edgeBuffer);
   }
@@ -1360,7 +1421,9 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    *           (see {@link StackMetrics#draw}.
    *
    * @param c value in Map coordinate space to be scaled
-   * @param os_scale Operating system's scale factor, (obtained from {@link Graphics2D#getDeviceConfiguration().getDefaultTransform().getScaleX()})
+   * @param os_scale Operating system's scale factor, (obtained from {@link java.awt.Graphics2D#getDeviceConfiguration() getDeviceConfiguration()}
+   *     .{@link java.awt.GraphicsConfiguration#getDefaultTransform() getDefaultTransform()}
+   *     .{@link java.awt.geom.AffineTransform#getScaleX() getScaleX()})
    * @return scaled value in Drawing coordinate space
    */
   public int mapToDrawing(int c, double os_scale) {
@@ -1377,7 +1440,9 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    *           (see {@link StackMetrics#draw}.
    *
    * @param p point in Map coordinates to be scaled
-   * @param os_scale Operating system's scale factor, (obtained from {@link Graphics2D#getDeviceConfiguration().getDefaultTransform().getScaleX()})
+   * @param os_scale Operating system's scale factor, (obtained from {@link java.awt.Graphics2D#getDeviceConfiguration() getDeviceConfiguration()}
+   *    *     .{@link java.awt.GraphicsConfiguration#getDefaultTransform() getDefaultTransform()}
+   *    *     .{@link java.awt.geom.AffineTransform#getScaleX() getScaleX()})
    * @return scaled point in Drawing coordinates
    */
   public Point mapToDrawing(Point p, double os_scale) {
@@ -1394,7 +1459,9 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    *           (see {@link StackMetrics#draw}.
    *
    * @param r rectangle in Map coordinates to be scaled
-   * @param os_scale Operating system's scale factor, (obtained from {@link Graphics2D#getDeviceConfiguration().getDefaultTransform().getScaleX()})
+   * @param os_scale Operating system's scale factor, (obtained from {@link java.awt.Graphics2D#getDeviceConfiguration() getDeviceConfiguration()}
+   *    *    *     .{@link java.awt.GraphicsConfiguration#getDefaultTransform() getDefaultTransform()}
+   *    *    *     .{@link java.awt.geom.AffineTransform#getScaleX() getScaleX()})
    * @return scaled rectangle in Drawing coordinates
    */
   public Rectangle mapToDrawing(Rectangle r, double os_scale) {
@@ -1456,7 +1523,9 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    * using it in the context of drawing move trails.
    *
    * @param c value in Component coordinate space to be scaled
-   * @param os_scale Operating system's scale factor, (obtained from {@link Graphics2D#getDeviceConfiguration().getDefaultTransform().getScaleX()})
+   * @param os_scale Operating system's scale factor, (obtained from {@link java.awt.Graphics2D#getDeviceConfiguration() getDeviceConfiguration()}
+   *    *     .{@link java.awt.GraphicsConfiguration#getDefaultTransform() getDefaultTransform()}
+   *    *     .{@link java.awt.geom.AffineTransform#getScaleX() getScaleX()})
    * @return scaled value in Drawing coordinate space
    */
   public int componentToDrawing(int c, double os_scale) {
@@ -1473,7 +1542,9 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    * using it in the context of drawing move trails.
    *
    * @param p Point in Component coordinate space to be scaled
-   * @param os_scale Operating system's scale factor, (obtained from {@link Graphics2D#getDeviceConfiguration().getDefaultTransform().getScaleX()})
+   * @param os_scale Operating system's scale factor, (obtained from {@link java.awt.Graphics2D#getDeviceConfiguration() getDeviceConfiguration()}
+   *    *     .{@link java.awt.GraphicsConfiguration#getDefaultTransform() getDefaultTransform()}
+   *    *     .{@link java.awt.geom.AffineTransform#getScaleX() getScaleX()})
    * @return scaled Point in Drawing coordinate space
    */
   public Point componentToDrawing(Point p, double os_scale) {
@@ -1490,7 +1561,9 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    * using it in the context of drawing move trails.
    *
    * @param r Rectangle in Component coordinate space to be scaled
-   * @param os_scale Operating system's scale factor, (obtained from {@link Graphics2D#getDeviceConfiguration().getDefaultTransform().getScaleX()})
+   * @param os_scale Operating system's scale factor, (obtained from {@link java.awt.Graphics2D#getDeviceConfiguration() getDeviceConfiguration()}
+   *    *     .{@link java.awt.GraphicsConfiguration#getDefaultTransform() getDefaultTransform()}
+   *    *     .{@link java.awt.geom.AffineTransform#getScaleX() getScaleX()})
    * @return scaled Rectangle in Drawing coordinate space
    */
   public Rectangle componentToDrawing(Rectangle r, double os_scale) {
@@ -1549,7 +1622,9 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    * have the traditional 1-to-1 relationship with component coordinates, on HiDPI monitors it will not.
    *
    * @param c value in Drawing coordinate space to be scaled
-   * @param os_scale Operating system's scale factor, (obtained from {@link Graphics2D#getDeviceConfiguration().getDefaultTransform().getScaleX()})
+   * @param os_scale Operating system's scale factor, (obtained from {@link java.awt.Graphics2D#getDeviceConfiguration() getDeviceConfiguration()}
+   *    *     .{@link java.awt.GraphicsConfiguration#getDefaultTransform() getDefaultTransform()}
+   *    *     .{@link java.awt.geom.AffineTransform#getScaleX() getScaleX()})
    * @return scaled value in Map coordinates
    */
   @SuppressWarnings("unused")
@@ -1564,7 +1639,9 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    * have the traditional 1-to-1 relationship with component coordinates, on HiDPI monitors it will not.
    *
    * @param p Point in Drawing coordinate space to be scaled
-   * @param os_scale Operating system's scale factor, (obtained from {@link Graphics2D#getDeviceConfiguration().getDefaultTransform().getScaleX()})
+   * @param os_scale Operating system's scale factor, (obtained from {@link java.awt.Graphics2D#getDeviceConfiguration() getDeviceConfiguration()}
+   *    *     .{@link java.awt.GraphicsConfiguration#getDefaultTransform() getDefaultTransform()}
+   *    *     .{@link java.awt.geom.AffineTransform#getScaleX() getScaleX()})
    * @return scaled point in Map coordinates
    */
   public Point drawingToMap(Point p, double os_scale) {
@@ -1578,7 +1655,9 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    * have the traditional 1-to-1 relationship with component coordinates, on HiDPI monitors it will not.
    *
    * @param r Rectangle in Drawing coordinate space to be scaled
-   * @param os_scale Operating system's scale factor, (obtained from {@link Graphics2D#getDeviceConfiguration().getDefaultTransform().getScaleX()})
+   * @param os_scale Operating system's scale factor, (obtained from {@link java.awt.Graphics2D#getDeviceConfiguration() getDeviceConfiguration()}
+   *    *     .{@link java.awt.GraphicsConfiguration#getDefaultTransform() getDefaultTransform()}
+   *    *     .{@link java.awt.geom.AffineTransform#getScaleX() getScaleX()})
    * @return scaled Rectangle in Map coordinates
    */
   public Rectangle drawingToMap(Rectangle r, double os_scale) {
@@ -1592,7 +1671,9 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    * 1-to-1 relationship with Component coordinates, on HiDPI monitors it will not.
    *
    * @param c value in Drawing coordinates
-   * @param os_scale Operating system's scale factor, (obtained from {@link Graphics2D#getDeviceConfiguration().getDefaultTransform().getScaleX()})
+   * @param os_scale Operating system's scale factor, (obtained from {@link java.awt.Graphics2D#getDeviceConfiguration() getDeviceConfiguration()}
+   *    *     .{@link java.awt.GraphicsConfiguration#getDefaultTransform() getDefaultTransform()}
+   *    *     .{@link java.awt.geom.AffineTransform#getScaleX() getScaleX()})
    * @return scaled value in Component coordinates
    */
   public int drawingToComponent(int c, double os_scale) {
@@ -1606,7 +1687,9 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    * 1-to-1 relationship with Component coordinates, on HiDPI monitors it will not.
    *
    * @param p Point in Drawing coordinates
-   * @param os_scale Operating system's scale factor, (obtained from {@link Graphics2D#getDeviceConfiguration().getDefaultTransform().getScaleX()})
+   * @param os_scale Operating system's scale factor, (obtained from {@link java.awt.Graphics2D#getDeviceConfiguration() getDeviceConfiguration()}
+   *    *     .{@link java.awt.GraphicsConfiguration#getDefaultTransform() getDefaultTransform()}
+   *    *     .{@link java.awt.geom.AffineTransform#getScaleX() getScaleX()})
    * @return scaled Point in Component coordinates
    */
   public Point drawingToComponent(Point p, double os_scale) {
@@ -1620,7 +1703,9 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    * 1-to-1 relationship with Component coordinates, on HiDPI monitors it will not.
    *
    * @param r Rectangle in Drawing coordinates
-   * @param os_scale Operating system's scale factor, (obtained from {@link Graphics2D#getDeviceConfiguration().getDefaultTransform().getScaleX()})
+   * @param os_scale Operating system's scale factor, (obtained from {@link java.awt.Graphics2D#getDeviceConfiguration() getDeviceConfiguration()}
+   *    *     .{@link java.awt.GraphicsConfiguration#getDefaultTransform() getDefaultTransform()}
+   *    *     .{@link java.awt.geom.AffineTransform#getScaleX() getScaleX()})
    * @return scaled Rectangle in Component coordinates
    */
   public Rectangle drawingToComponent(Rectangle r, double os_scale) {
@@ -1698,7 +1783,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    * Return the name of the {@link Deck} whose position is precisely p
    *
    * @param p Point to look for Deck
-   * @return Name of {@link Deck whose position is precisely p
+   * @return Name of {@link Deck} whose position is precisely p
    */
   public String getDeckNameAt(Point p) {
     String deck = null;
@@ -1717,7 +1802,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    * Return the localized name of the {@link Deck} whose position is precisely p
    *
    * @param p Point to look for Deck
-   * @return Name of {@link Deck whose position is precisely p
+   * @return Name of {@link Deck} whose position is precisely p
    */
   public String getLocalizedDeckNameAt(Point p) {
     String deck = null;
@@ -2090,7 +2175,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
   @Override
   public void mouseMoved(MouseEvent e) {
     final DebugControls dc = GameModule.getGameModule().getDebugControls();
-    dc.setCursorLocation(componentToMap(e.getPoint()));
+    dc.setCursorLocation(componentToMap(e.getPoint()), this);
   }
 
   /**
@@ -2103,7 +2188,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
   @Override
   public void mouseDragged(MouseEvent e) {
     final DebugControls dc = GameModule.getGameModule().getDebugControls();
-    dc.setCursorLocation(componentToMap(e.getPoint()));
+    dc.setCursorLocation(componentToMap(e.getPoint()), this);
 
     if (!SwingUtils.isContextMouseButtonDown(e)) {
       scrollAtEdge(e.getPoint(), SCROLL_ZONE);
@@ -2269,6 +2354,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    * @param c observer component
    */
   public void paintRegion(Graphics g, Rectangle visibleRect, Component c) {
+    setAnyMouseoverDrawn(false);
     clearMapBorder(g); // To avoid ghost pieces around the edge
     drawBoardsInRegion(g, visibleRect, c);
     drawDrawable(g, false);
@@ -2610,7 +2696,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    * @param zoom zoom factor to use
    * @return Relative position of the board at given scale
    */
-  protected Point getLocation(Board b, double zoom) {
+  public Point getLocation(Board b, double zoom) {
     final Point p;
     if (zoom == 1.0) {
       p = b.bounds().getLocation();
@@ -2633,12 +2719,15 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    */
   protected Point getLocation(int column, int row, double zoom) {
     final Point p = new Point();
+    int dx = 0;
     for (int x = 0; x < column; ++x) {
-      p.translate((int) Math.floor(zoom * boardWidths[x][row]), 0);
+      dx += boardWidths[x][row];
     }
+    int dy = 0;
     for (int y = 0; y < row; ++y) {
-      p.translate(0, (int) Math.floor(zoom * boardHeights[column][y]));
+      dy += boardHeights[column][y];
     }
+    p.translate((int) round(zoom * dx), (int) round(zoom * dy));
     return p;
   }
 
@@ -3044,6 +3133,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    * @return a {@link Command} that reproduces this action
    */
   public Command placeAt(GamePiece piece, Point pt) {
+
     final Command c;
     if (GameModule.getGameModule().getGameState().getPieceForId(piece.getId()) == null) {
       piece.setPosition(pt);
@@ -3057,6 +3147,8 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
       addPiece(piece);
       c = tracker.getMoveCommand();
     }
+    // Update the position based indexes for this piece
+    GameModule.getGameModule().getIndexManager().pieceMoved(piece, this);
     return c;
   }
 
@@ -3110,6 +3202,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
   public void addPiece(GamePiece p) {
     // Temporarily change the piece to be on this map to ensure a CP can calculate a layer.
     // Then return the original map so the piece can be correctly unlinked
+
     final Map currentMap = p.getMap();
     p.setMap(this);
     final int index = indexOf(p);
@@ -3126,6 +3219,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
       p.setMap(this);
       pieces.add(p);
       theMap.repaint();
+      GameModule.getGameModule().getIndexManager().pieceMoved(p, this);
     }
   }
 
@@ -3144,8 +3238,29 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    * @param p GamePiece to remove from map
    */
   public void removePiece(GamePiece p) {
+    GameModule.getGameModule().getIndexManager().pieceRemoved(p, this);
     pieces.remove(p);
     theMap.repaint();
+    GameModule.getGameModule().getIndexManager().pieceRemoved(p, this);
+  }
+
+
+  /**
+   * Accepts the current actual center of the map as the new "preferred center" (e.g. if we scroll)
+   * Just not if suppressed after a zoom level change (we don't want zoom level changes to cause us to
+   * lose track of the user's preferred ceter point)
+   */
+  public void updateCenter() {
+    if (!GameModule.getGameModule().isSuppressAutoCenterUpdate()) {
+      preferredCenter = getCenter();
+    }
+  }
+
+  /**
+   * @return last location the player has requested to be the center of the map (eg by manually clicking or scrolling)
+   */
+  public Point getPreferredCenter() {
+    return preferredCenter;
   }
 
   /**
@@ -3164,6 +3279,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    * @param dy y tolerance for nearness to center
    */
   public void centerAt(Point p, int dx, int dy) {
+    preferredCenter = p;
     if (scroll != null) {
       p = mapToComponent(p);
 
@@ -3253,6 +3369,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
     r.translate(dx, dy);
     r = r.intersection(new Rectangle(getPreferredSize()));
     theMap.scrollRectToVisible(r);
+    updateCenter();
   }
 
   /**
@@ -3327,6 +3444,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
       Resources.getString("Editor.Map.toggle_key"),
       Resources.getString("Editor.Map.show_key"),
       Resources.getString("Editor.Map.hide_key"),
+      Resources.getString("Editor.Map.only_report_changed_location"),
       Resources.getString("Editor.Map.report_move_within"), //$NON-NLS-1$
       Resources.getString("Editor.Map.report_move_to"), //$NON-NLS-1$
       Resources.getString("Editor.Map.report_created"), //$NON-NLS-1$
@@ -3366,6 +3484,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
       HOTKEY,
       SHOW_KEY,
       HIDE_KEY,
+      ONLY_REPORT_CHANGED_LOCATION,
       MOVE_WITHIN_FORMAT,
       MOVE_TO_FORMAT,
       CREATE_FORMAT,
@@ -3406,6 +3525,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
       NamedKeyStroke.class,
       NamedKeyStroke.class,
       NamedKeyStroke.class,
+      Boolean.class,
       MoveWithinFormatConfig.class,
       MoveToFormatConfig.class,
       CreateFormatConfig.class,
@@ -3582,7 +3702,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    */
   @Override
   public Class<?>[] getAllowableConfigureComponents() {
-    return new Class<?>[]{ MapSubFolder.class, GlobalMap.class, LOS_Thread.class, ToolbarMenu.class, MultiActionButton.class, HidePiecesButton.class, Zoomer.class,
+    return new Class<?>[]{ MapSubFolder.class, GlobalMap.class, LOS_Thread.class, ToolbarMenu.class, MultiActionButton.class, DoActionButton.class, HidePiecesButton.class, Zoomer.class,
       CounterDetailViewer.class, HighlightLastMoved.class, LayeredPieceCollection.class, ImageSaver.class, TextSaver.class, DrawPile.class, SetupStack.class,
       MassKeyCommand.class, MapShader.class, PieceRecenterer.class, Flare.class, MoveCameraButton.class };
   }
@@ -3712,25 +3832,37 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
     return UniqueIdManager.getIdentifier(this);
   }
 
+
+  /**
+   * Common view setup code for Map and PrivateMap, which confusingly have different View classes that sharing the same name
+   */
+  public void setUpView() {
+    scroll = new AdjustableSpeedScrollPane(
+      theMap,
+      JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+      JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+    scroll.unregisterKeyboardAction(
+      KeyStroke.getKeyStroke(KeyEvent.VK_PAGE_DOWN, 0));
+    scroll.unregisterKeyboardAction(
+      KeyStroke.getKeyStroke(KeyEvent.VK_PAGE_UP, 0));
+    scroll.setAlignmentX(0.0f);
+    scroll.setAlignmentY(0.0f);
+
+    layeredPane.setLayout(new InsetLayout(layeredPane, scroll));
+    layeredPane.add(scroll, JLayeredPane.DEFAULT_LAYER);
+
+    // When our Viewport changes for any reason, check if we need to update our "preferred center point"
+    scroll.getViewport().addChangeListener(e -> updateCenter());
+  }
+
+
   /** @return the Swing component representing the map */
   public JComponent getView() {
     if (theMap == null) {
       theMap = new View(this);
-
-      scroll = new AdjustableSpeedScrollPane(
-        theMap,
-        JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
-        JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-      scroll.unregisterKeyboardAction(
-        KeyStroke.getKeyStroke(KeyEvent.VK_PAGE_DOWN, 0));
-      scroll.unregisterKeyboardAction(
-        KeyStroke.getKeyStroke(KeyEvent.VK_PAGE_UP, 0));
-      scroll.setAlignmentX(0.0f);
-      scroll.setAlignmentY(0.0f);
-
-      layeredPane.setLayout(new InsetLayout(layeredPane, scroll));
-      layeredPane.add(scroll, JLayeredPane.DEFAULT_LAYER);
+      setUpView();
     }
+
     return theMap;
   }
 
@@ -3828,7 +3960,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
 
     /**
      * Returns a command to merge our piece into the specified stack, provided that the stack is in the precise
-     * map location specified, the map allows stacking, our piece allows stacking, and our stack & piece are in the
+     * map location specified, the map allows stacking, our piece allows stacking, and our stack and piece are in the
      * same layer.
      * @param s Stack to consider merging with
      * @return Command to merge into the stack, or null if any of the necessary conditions weren't met
@@ -3962,7 +4094,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    */
   @Override
   public List<String> getMenuTextList() {
-    final List<String> l = new ArrayList<>();
+    final List<String> l = new ArrayList<>(super.getMenuTextList());
     if (!GlobalOptions.NEVER.equals(markMovedOption)) {
       l.add(markUnmovedText);
       l.add(markUnmovedTooltip);
@@ -3980,12 +4112,13 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    */
   @Override
   public List<NamedKeyStroke> getNamedKeyStrokeList() {
+    final List<NamedKeyStroke> l = new ArrayList<>(super.getNamedKeyStrokeList());
+    l.add(NamedHotKeyConfigurer.decode(getAttributeValueString(HOTKEY)));
+    l.add(moveKey);
     if (!GlobalOptions.NEVER.equals(markMovedOption)) {
-      return Arrays.asList(NamedHotKeyConfigurer.decode(getAttributeValueString(HOTKEY)), moveKey, NamedHotKeyConfigurer.decode(getAttributeValueString(MARK_UNMOVED_HOTKEY)));
+      l.add(NamedHotKeyConfigurer.decode(getAttributeValueString(MARK_UNMOVED_HOTKEY)));
     }
-    else {
-      return Arrays.asList(NamedHotKeyConfigurer.decode(getAttributeValueString(HOTKEY)), moveKey);
-    }
+    return l;
   }
 
   /**

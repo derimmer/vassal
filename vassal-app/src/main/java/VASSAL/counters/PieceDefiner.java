@@ -199,7 +199,9 @@ public class PieceDefiner extends JPanel {
     if (availableModel == null) {
       availableModel = new DefaultListModel<>();
       //addElement(new BasicPiece()); // Not needed since you can never add it
+      addElement(new Attachment());
       addElement(new BasicName());
+      addElement(new BorderOutline());
       addElement(new Delete());
       addElement(new Clone());
       addElement(new Embellishment());
@@ -234,11 +236,14 @@ public class PieceDefiner extends JPanel {
       addElement(new Marker());
       addElement(new DynamicProperty());
       addElement(new CalculatedProperty());
+      addElement(new SetAttachmentProperty());
       addElement(new SetGlobalProperty());
+      addElement(new SetPieceProperty());
       addElement(new Deselect());
       addElement(new TranslatableMessage());
       addElement(new Mat(""));
       addElement(new MatCargo());
+      addElement(new MultiLocationCommand());
 
       // Generate a model sorted by description, in the current users language
       buildAlphaModel();

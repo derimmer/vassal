@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2021 Brent Easton
+ * Copyright (c) 2008-2023 The VASSAL Development Team
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -65,6 +65,8 @@ unwrap(Object value) {
  * If function for Expressions. Note the capitalization to distinguish
  * it from the if java keyword.
  *
+ * OBSOLETE and INEFFICIENT, SHOULD NOT BE USED
+ *
  *  Example: If(range < 5, 5, range+2)
  */
 If(boolean exp, Object o1, Object o2) {
@@ -87,6 +89,19 @@ SumStack(String property) {
 }
 
 /**
+ * Callback to Vassal to sum the value of a property in all
+ * counters in the same stack as the target property
+ *
+ * Example: SumStack("Strength", "{Type==\"Unit\"}")
+ */
+SumStack(String property, String expression) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.sumStack(property, expression, _source));
+}
+
+
+/**
  * Callback to Vassal to count the number of pieces in the same stack
  *
  * Example: CountStack()
@@ -99,27 +114,323 @@ CountStack() {
 
 /**
  * Callback to Vassal to count the number of pieces in the same
- * stack that *contain* the target property
+ * stack that have a non-blank value for the target property
+ * OR that match an exppresion
+ *
  *
  * Example: CountStack("Strength")
+ *          CountStack("{Type==\"Unit\"}")
  */
-CountStack(String property) {
+CountStack(String propertyOrExpression) {
   _interp = this.caller.namespace.getVariable("_interp");
   _source = this.caller.namespace.getVariable("_source");
-  return unwrap(_interp.countStack(property, _source));
+  return unwrap(_interp.countStack(propertyOrExpression, _source));
+}
+
+/**
+ * Callback to Vassal to count the number of pieces in the same
+ * stack that have a non-blank value for the target property
+ * AND that match an exppresion
+ *
+ *
+ * Example: CountStack("Strength", "{Type==\"Unit\"}")
+ */
+CountStack(String property, String expression) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.countStack(property, expression, _source));
+}
+
+/**
+ * Callback to Vassal to find the highest value of a named property
+ * among all counters attached through a named Attachment trait.
+ * Returns 0 if no counters are attached.
+ *
+ * Example: MaxAttachment("Sibling", "Strength")
+ */
+MaxAttachment(String attachment, String property) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.maxAttachment(attachment, property, _source));
+}
+
+/**
+ * Callback to Vassal to find the lowest value of a named property
+ * among all counters attached through a named Attachment trait.
+ * Returns 0 if no counters are attached.
+ *
+ * Example: MinAttachment("Sibling", "Strength")
+ */
+MinAttachment(String attachment, String property) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.minAttachment(attachment, property, _source));
+}
+
+
+/**
+ * Callback to Vassal to sum the value of a named property in all
+ * counters attached through a named Attachment trait
+ *
+ * Example: SumAttachment("Sibling", "Strength")
+ */
+SumAttachment(String attachment, String property) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.sumAttachment(attachment, property, _source));
+}
+
+/**
+ * Callback to Vassal to count the number of pieces attached through
+ * the named Attachment trait which *contain* the target property
+ *
+ * Example: CountAttachment("Sibling", "Strength")
+ */
+CountAttachment(String attachment, String property) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.countAttachment(attachment, property, _source));
+}
+
+
+/**
+ * Callback to Vassal to count the number of pieces attached through
+ * the named Attachment trait which pass the property match expression
+ *
+ * Example: CountAttachment("Sibling", "{ Strength > 1 }")
+ */
+CountAttachmentExpression(String attachment, String expression) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.countAttachmentExpression(attachment, expression, _source));
+}
+
+
+/**
+ * Callback to Vassal to sum the value of a property in all
+ * counters that include a Mat and its MatCargo
+ *
+ * Example: SumMat("Strength") 
+ */
+SumMat(String property) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.sumMat(property, _source));
 }
 
 /**
  * Callback to Vassal to sum the value of a property in all
- * counters in the same location as the target property
- * WARNING - This could be slow on maps with many counters
+ * counters that include a Mat and its MatCargo
+ * and that match an expression
  *
- * Example: SumLocation("Strength") 
+ * Example: SumMat("Strength", "{Strength >= 0}")
  */
+SumMat(String property, String expression) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.sumMat(property, expression, _source));
+}
+
+
+/**
+ * Callback to Vassal to count the number of counters
+ * that contain a particular property among a Mat and its
+ * MatCargo
+ *
+ * Example: CountMat("Strength") 
+ */
+CountMat(String propertyOrExpression) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.countMat(propertyOrExpression, _source));
+}
+
+CountMat(String property, String expression) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.countMat(property, expression, _source));
+}
+
+/**
+ * Callbacks to vassal for functions that sum the value of the specified property in a Location
+ *
+ * SumLocation(property)
+ *    Sum pieces in same location as caller
+ * SumLocation(property, expression)
+ *    Sum pieces in same location as caller that match expression
+ * SumLocation(property, location, map)
+ *    Sum pieces in the specified map/location
+ * SumLocation(property, location, map, expression)
+ *    Sum pieces in the specified map/location that match expression
+ *
+ */ 
+
 SumLocation(String property) {
   _interp = this.caller.namespace.getVariable("_interp");
   _source = this.caller.namespace.getVariable("_source");
   return unwrap(_interp.sumLocation(property, _source));
+}
+
+SumLocation(String property, String expression) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.sumLocation(property, expression, _source));
+}
+
+SumMapLocation(String property, String location, String map) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.sumMapLocation(property, location, map, _source));
+}
+
+SumMapLocation(String property, String location, String map, String expression) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.sumMapLocation(property, location, map, expression, _source));
+}
+
+/**
+ * Callbacks to vassal for functions that count pieces in a Location, optionally with a non-blank value for the specified property
+ * CountLocation()
+ *    Count pieces in same location as caller
+ * CountLocation(expression)
+ *    Count pieces in sane location as caller that match expression
+ * CountLocation(property)
+ *    Count pieces in same location as caller with a non-blank value for the specified property
+ * CountLocation(property, expression)
+ *    Count pieces in same location as caller that match expression with a non-blank value for the specified property
+ * CountLocation(location, map, property)
+ *    Count pieces in the specified map/location
+ * CountLocation(location, map, property, expression)
+ *    Count pieces in the specified map/location that match expression
+ *
+ */ 
+
+CountLocation() {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.countLocation(_source));
+}
+
+CountLocation(String propertyOrExpression) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.countLocation(propertyOrExpression, _source));
+}
+
+CountLocation(String property, String expression) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.countLocation(property, expression, _source));
+}
+
+CountMapLocation(String location, String map) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.countMapLocation(location, map, _source));
+}
+
+CountMapLocation(String location, String map, String propertyOrExpression) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.countMapLocation(location, map, propertyOrExpression, _source));
+}
+
+CountMapLocation(String location, String map, String property, String expression) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.countMapLocation(location, map, property, expression, _source));
+}
+
+/**
+ * Callbacks to Vassal for functions to sum properties in a Zone
+ *
+ * SumZone(String property) 
+ *    Sum value of property on all pieces in the same zone as the caller
+ * SumZone(String property, String expression) 
+ *    Sum value of property on pieces that match expression in the same zone as the caller
+ * SumZone(String property, String location, String map)
+ *    Sum value of property on all pieces in the specifed zone on the specified map
+ * SumZone(String property, String location, String map, String expression)
+ *    Sum value of property on pieces that match expression in the specifed zone on the specified map
+ */
+SumZone(String property) {
+   _interp = this.caller.namespace.getVariable("_interp");
+   _source = this.caller.namespace.getVariable("_source");
+   return unwrap(_interp.sumZone(property, _source));
+ }
+ 
+SumZone(String property, String expression) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.sumZone(property, expression, _source));
+}
+
+SumMapZone(String property, String location, String map) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.sumMapZone(property, location, map, _source));
+}
+
+SumMapZone(String property, String location, String map, String expression) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.sumMapZone(property, location, map, expression, _source));
+}
+
+/**
+ * Callbacks to Vassal for functions to count pieces that have a property in a Zone
+ * These functions count the number of pieces that have a non-blank value for the specified property
+ *
+ * CountZone()
+*     Count number of pieces in the same zone as the caller
+ * CountZone(String expression)
+ *    Count number of pieces in the same zone as the caller that match expression
+ * CountZone(String property) 
+ *    Count number of pieces that have a value for property on all pieces in the same zone as the caller
+ * CountZone(String property, String expression) 
+ *    Count number of pieces that have a value for property on pieces that match expression in the same zone as the caller
+ * CountMapZone(String location, String map)
+ *    Count number of pieces in the specifed zone on the specified map
+ * CountMapZone(String location, String map, String property)
+ *    Count number of pieces that have a value for property on all pieces in the specifed zone on the specified map
+ * CountMapZone(String location, String map, String property, String expression)
+ *    Count number of pieces that have a value for property on pieces that match expression in the specifed zone on the specified map
+ */
+
+ CountZone() {
+   _interp = this.caller.namespace.getVariable("_interp");
+   _source = this.caller.namespace.getVariable("_source");
+   return unwrap(_interp.countZone(_source));
+ }
+
+ CountZone(String propertyOrExpression) {
+   _interp = this.caller.namespace.getVariable("_interp");
+   _source = this.caller.namespace.getVariable("_source");
+   return unwrap(_interp.countZone(propertyOrExpression, _source));
+ }
+ 
+CountZone(String property, String expression) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.countZone(property, expression, _source));
+}
+
+CountMapZone(String location, String map) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+return unwrap(_interp.countMapZone(location, map, _source));}
+
+CountMapZone(String location, String map, String propertyOrExpression) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.countMapZone(location, map, propertyOrExpression, _source));
+}
+
+CountMapZone(String location, String map, String property, String expression) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.countMapZone(location, map, property, expression, _source));
 }
 
 /**
@@ -147,6 +458,57 @@ Count(Object selection, Object mapName) {
   _interp = this.caller.namespace.getVariable("_interp");
   _source = this.caller.namespace.getVariable("_source");
   return unwrap(_interp.count(_source, selection, mapName));
+}
+
+/**
+ * Callbacks for Range functions
+ */
+RangeInPixels(String attachmentName) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.rangeInPixels(attachmentName, _source));
+}
+
+RangeInCells(String attachmentName) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.rangeInCells(attachmentName, _source));
+}
+
+RangeInPixels(Object x, Object y) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.rangeInPixels(x, y, _source));
+}
+
+RangeInCells(Object x, Object y) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.rangeInCells(x, y, _source));
+}
+
+RangeInPixels(Object x1, Object y1, Object x2, Object y2) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.rangeInPixels(x1, y1, x2, y2, _source));
+}
+
+RangeInCells(Object x1, Object y1, Object x2, Object y2) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.rangeInCells(x1, y1, x2, y2, _source));
+}
+
+RangeInPixels(Object x1, Object y1, Object x2, Object y2, String mapName) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.rangeInPixels(x1, y1, x2, y2, mapName, _source));
+}
+
+RangeInCells(Object x1, Object y1, Object x2, Object y2, String mapName) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.rangeInCells(x1, y1, x2, y2, mapName, _source));
 }
 
 /**
@@ -189,6 +551,18 @@ GetMapProperty(String propertyName, String mapName) {
   _interp = this.caller.namespace.getVariable("_interp");
   _source = this.caller.namespace.getVariable("_source");
   return unwrap(_interp.getMapProperty(propertyName, mapName));
+}
+
+GetAttachmentProperty(String attachmentName, String propertyName, String index) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.getAttachmentProperty(attachmentName, propertyName, index, _source));
+}
+
+GetAttachmentProperty(String attachmentName, String propertyName) {
+  _interp = this.caller.namespace.getVariable("_interp");
+  _source = this.caller.namespace.getVariable("_source");
+  return unwrap(_interp.getAttachmentProperty(attachmentName, propertyName, 1, _source));
 }
 
 /** 

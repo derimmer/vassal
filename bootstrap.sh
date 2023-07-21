@@ -5,7 +5,7 @@
 #
 DMGDIR=dist/dmg
 
-L4JVER=3.14
+L4JVER=3.50
 L4JDIR=dist/launch4j
 
 JDKDIR=dist/jdks
@@ -17,35 +17,42 @@ mkdir -p "$JDKDIR"
 pushd "$JDKDIR"
 
 ZULU_URL='https://cdn.azul.com/zulu/bin'
-ZULU_BASENAME=zulu18.30.11-ca-jdk18.0.1
+
+TEMURIN_URL='https://github.com/adoptium/temurin20-binaries/releases/download'
+TEMURIN_VERSION=jdk-20.0.1+9
+TEMURIN_FILENAME_VERSION=20.0.1_9
+
+BELLSOFT_URL='https://download.bell-sw.com/java/20.0.1%2B10'
+BELLSOFT_VERSION=20.0.1+10
+BELLSOFT_DIR=jdk-20.0.1
 
 # Windows x86_32
-filename=$ZULU_BASENAME-win_i686.zip
-curl -O "$ZULU_URL/$filename"
+filename="bellsoft-jdk$BELLSOFT_VERSION-windows-i586.zip"
+curl -O "$BELLSOFT_URL/$filename"
 unzip $filename
-mv $(basename $filename .zip) windows-x86_32
+mv $BELLSOFT_DIR windows-x86_32
 
 # Windows x86_64
-filename=$ZULU_BASENAME-win_x64.zip
-curl -O "$ZULU_URL/$filename"
+filename="OpenJDK20U-jdk_x64_windows_hotspot_$TEMURIN_FILENAME_VERSION.zip"
+curl -L -O "$TEMURIN_URL/$TEMURIN_VERSION/$filename"
 unzip $filename
-mv $(basename $filename .zip) windows-x86_64
+mv $TEMURIN_VERSION windows-x86_64
 
 # Windows aarch64
-filename=$ZULU_BASENAME-win_aarch64.zip
-curl -O "$ZULU_URL/$filename"
+filename="bellsoft-jdk$BELLSOFT_VERSION-windows-aarch64.zip"
+curl -O "$BELLSOFT_URL/$filename"
 unzip $filename
-mv $(basename $filename .zip) windows-aarch64
+mv $BELLSOFT_DIR windows-aarch64
 
 # MacOS x86_64
-filename=$ZULU_BASENAME-macosx_x64.tar.gz
-curl -O "$ZULU_URL/$filename"
+filename="OpenJDK20U-jdk_x64_mac_hotspot_$TEMURIN_FILENAME_VERSION.tar.gz"
+curl -L -O "$TEMURIN_URL/$TEMURIN_VERSION/$filename"
 mkdir macos-x86_64
 tar -C macos-x86_64 --strip-components=1 -xvf $filename
 
 # MacOS aarch64
-filename=$ZULU_BASENAME-macosx_aarch64.tar.gz
-curl -O "$ZULU_URL/$filename"
+filename="OpenJDK20U-jdk_aarch64_mac_hotspot_$TEMURIN_FILENAME_VERSION.tar.gz"
+curl -L -O "$TEMURIN_URL/$TEMURIN_VERSION/$filename"
 mkdir macos-aarch64
 tar -C macos-aarch64 --strip-components=1 -xvf $filename
 
@@ -59,7 +66,9 @@ pushd "$L4JDIR"
 
 wget https://downloads.sourceforge.net/project/launch4j/launch4j-3/${L4JVER}/launch4j-${L4JVER}-linux-x64.tgz
 tar -xvf launch4j-${L4JVER}-linux-x64.tgz
-
+# check if script is still broken in next release after 3.50
+# see https://sourceforge.net/p/launch4j/bugs/227/
+dos2unix launch4j/launch4j
 popd
 
 #
@@ -82,4 +91,4 @@ popd
 #
 # Set up Maven Wrapper
 #
-mvn -N io.takari:maven:0.7.7:wrapper
+mvn wrapper:wrapper

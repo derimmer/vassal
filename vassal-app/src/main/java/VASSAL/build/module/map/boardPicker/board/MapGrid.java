@@ -17,11 +17,11 @@
  */
 package VASSAL.build.module.map.boardPicker.board;
 
+import VASSAL.build.module.map.boardPicker.board.mapgrid.GridNumbering;
+
 import java.awt.Graphics;
 import java.awt.Point;
 import java.awt.Rectangle;
-
-import VASSAL.build.module.map.boardPicker.board.mapgrid.GridNumbering;
 
 /**
  * A MapGrid overlays a map board to constrain
@@ -29,9 +29,25 @@ import VASSAL.build.module.map.boardPicker.board.mapgrid.GridNumbering;
  */
 public interface MapGrid {
   /**
-   * @return the nearest grid location to the given point
+   * @see MapGrid#snapTo(Point p, boolean force, boolean onlyCenter)
    */
   Point snapTo(Point p);
+
+  /**
+   * @param onlyCenter If true, snaps only to the center, never to the edge or corner.
+   * @return The nearest grid location to the given point. This can for instance snap
+   * to center, edge or corner, depending on settings and arguments.
+   */
+  default Point snapTo(Point p, boolean force, boolean onlyCenter) {
+    return snapTo(p);
+  }
+
+  /**
+   * @see MapGrid#snapTo(Point p, boolean force, boolean onlyCenter)
+   */
+  default Point snapTo(Point p, boolean force) {
+    return snapTo(p, force, false);
+  }
 
   /**
    * @return true if the given point may not be a local location.
@@ -56,6 +72,16 @@ public interface MapGrid {
    */
   int range(Point p1, Point p2);
 
+
+  /**
+   * Return an estimation of the maximum number of pixels per range unit for the grid that applies at the specified point.
+   * Does not need to be exact, but must defer on the larger side to ensure fast range-checking by QTree lookup finds all target pieces.
+   *
+   * @return maximum number of pixels per range unit.
+   */
+  default int getMaxPixelsPerRangeUnit(Point p) {
+    return 1;
+  }
 
   /** Whether this grid should be drawn on the map */
   boolean isVisible();

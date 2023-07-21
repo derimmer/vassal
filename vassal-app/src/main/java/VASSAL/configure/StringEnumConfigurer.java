@@ -66,6 +66,7 @@ public class StringEnumConfigurer extends Configurer {
     return panel;
   }
 
+  @Override
   public void setEnabled(boolean enabled) {
     box.setEnabled(enabled);
   }
@@ -117,7 +118,7 @@ public class StringEnumConfigurer extends Configurer {
   }
 
   @Override
-  public void setLabelVisibile(boolean visible) {
+  public void setLabelVisible(boolean visible) {
     panel.setLabelVisibility(visible);
   }
 }

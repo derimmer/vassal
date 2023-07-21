@@ -52,7 +52,7 @@ import VASSAL.search.ImageSearchTarget;
  * {@link Decorator} traits.
  * <br><br>
  * A standard Stack will only contain pieces that are "stackable" (i.e. doesn't have a "Does Not Stack" {@link Immobilized}
- * trait with stacking disabled, so that {@link Properties.NO_STACK} is false) and share the same X/Y position on the same {@link Map}, and all
+ * trait with stacking disabled, so that {@link VASSAL.counters.Properties#NO_STACK} is false) and share the same X/Y position on the same {@link Map}, and all
  * stackable pieces on a {@link Map} will always be part of <i>some</i> Stack -- even single stackable pieces will have
  * a Stack created to contain them. Stacks <i>should</i> contain only pieces from the same visual layer (see
  * {@link VASSAL.build.module.map.LayeredPieceCollection}), but presently bad behaviors can still develop (e.g. a piece
@@ -154,8 +154,9 @@ public class Stack extends AbstractImageFinder implements GamePiece, StateMergea
     }
   }
 
-
-
+  public boolean isEmpty() {
+    return getPieceCount() == 0;
+  }
 
   /**
    * @param index Index of piece to remove from the stack
@@ -241,14 +242,12 @@ public class Stack extends AbstractImageFinder implements GamePiece, StateMergea
    * @return The index of the piece, or -1 if it is not present in the stack
    */
   public int indexOf(GamePiece p) {
-    int index = -1;
     for (int i = 0; i < pieceCount; ++i) {
       if (p == contents[i]) {
-        index = i;
-        break;
+        return i;
       }
     }
-    return index;
+    return -1;
   }
 
   /**
@@ -474,7 +473,7 @@ public class Stack extends AbstractImageFinder implements GamePiece, StateMergea
 
   /**
    * Finds the piece "underneath" the one provided
-   * @param c Starting piece
+   * @param p Starting piece
    * @return piece underneath it, or null if none.
    */
   public GamePiece getPieceBeneath(GamePiece p) {
@@ -489,7 +488,7 @@ public class Stack extends AbstractImageFinder implements GamePiece, StateMergea
 
   /**
    * Finds the piece "above" the one provided
-   * @param c Starting piece
+   * @param p Starting piece
    * @return piece above it, or null if none.
    */
   public GamePiece getPieceAbove(GamePiece p) {
@@ -631,26 +630,27 @@ public class Stack extends AbstractImageFinder implements GamePiece, StateMergea
     }
     pieceCount = 0;
 
+    Map m = null;
+    if (!"null".equals(mapId)) { //$NON-NLS-1$//
+      m = Map.getMapById(mapId);
+      if (m == null) {
+        ErrorDialog.dataWarning(new BadDataReport("Could not find map", mapId, null)); // NON-NLS
+      }
+    }
+
     final GameState gs = GameModule.getGameModule().getGameState();
     while (st.hasMoreTokens()) {
       final String token = st.nextToken();
       final GamePiece child = gs.getPieceForId(token);
       if (child != null) {
         insertChild(child, pieceCount);
+        GameModule.getGameModule().getIndexManager().pieceMoved(child, m);
       }
       else {
         //BR// This encoding format with the "while" at the end made it challenging to work in a new parameter.
         if (token.startsWith(HAS_LAYER_MARKER)) {
-          layer = Integer.valueOf(token.substring(HAS_LAYER_MARKER.length()));
+          layer = Integer.parseInt(token.substring(HAS_LAYER_MARKER.length()));
         }
-      }
-    }
-
-    Map m = null;
-    if (!"null".equals(mapId)) { //$NON-NLS-1$//
-      m = Map.getMapById(mapId);
-      if (m == null) {
-        ErrorDialog.dataWarning(new BadDataReport("Could not find map", mapId, null)); // NON-NLS
       }
     }
 

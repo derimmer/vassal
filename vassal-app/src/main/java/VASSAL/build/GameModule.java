@@ -57,6 +57,7 @@ import VASSAL.build.module.gamepieceimage.ColorManager;
 import VASSAL.build.module.gamepieceimage.FontManager;
 import VASSAL.build.module.gamepieceimage.GamePieceImageDefinitions;
 import VASSAL.build.module.gamepieceimage.GamePieceLayoutsContainer;
+import VASSAL.build.module.index.IndexManager;
 import VASSAL.build.module.map.CounterDetailViewer;
 import VASSAL.build.module.metadata.AbstractMetaData;
 import VASSAL.build.module.metadata.MetaDataFactory;
@@ -94,7 +95,9 @@ import VASSAL.configure.StringConfigurer;
 import VASSAL.configure.TextConfigurer;
 import VASSAL.configure.ValidationReport;
 import VASSAL.configure.password.ToggleablePasswordConfigurer;
+import VASSAL.counters.DeckManager;
 import VASSAL.counters.GamePiece;
+import VASSAL.counters.KeyCommand;
 import VASSAL.i18n.ComponentI18nData;
 import VASSAL.i18n.I18nResourcePathFinder;
 import VASSAL.i18n.Language;
@@ -127,7 +130,6 @@ import VASSAL.tools.menu.MenuItemProxy;
 import VASSAL.tools.menu.MenuManager;
 import VASSAL.tools.swing.SwingUtils;
 import VASSAL.tools.version.VersionUtils;
-
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -135,6 +137,15 @@ import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
+import javax.swing.AbstractAction;
+import javax.swing.JComponent;
+import javax.swing.JFrame;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JToolBar;
+import javax.swing.KeyStroke;
+import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import java.awt.Container;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
@@ -159,14 +170,6 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
-
-import javax.swing.AbstractAction;
-import javax.swing.JComponent;
-import javax.swing.JFrame;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JToolBar;
-import javax.swing.KeyStroke;
 
 import static VASSAL.preferences.Prefs.MAIN_WINDOW_HEIGHT;
 import static VASSAL.preferences.Prefs.MAIN_WINDOW_REMEMBER;
@@ -278,6 +281,16 @@ public class GameModule extends AbstractConfigurable
   private final TranslatableStringContainer transContainer = new TranslatableStringContainer.Impl();
 
   private boolean matSupport = false; // If no Mats exist in the module, we don't need to spend any time doing mat-related calculations during moves/selects
+  private boolean trueMovedSupport = false; // If not ignore-small-moves traits exist in the module, we don't need to spend any time doing related calculations
+  private boolean mutableButtonLabelSupport = false; // If no mutable buttons, we don't need to spend time checking for updates of them;
+
+  private boolean suppressSounds = false; // Semaphore if currently suppressing sounds (eg during Global Key Command processing)
+
+  private final DeckManager deckMgr = new DeckManager();
+
+  public DeckManager getDeckManager() {
+    return deckMgr;
+  }
 
   private ToggleablePasswordConfigurer passwordConfigurer;
 
@@ -298,6 +311,82 @@ public class GameModule extends AbstractConfigurable
   public void setMatSupport(boolean matSupport) {
     this.matSupport = matSupport;
   }
+
+  /**
+   * @return True if there are any ignore-small-moves traits in the module
+   */
+  public boolean isTrueMovedSupport() {
+    return trueMovedSupport;
+  }
+
+  /**
+   * @param trueMovedSupport true if a ignore-small-moves trait exists in the module
+   */
+  public void setTrueMovedSupport(boolean trueMovedSupport) {
+    this.trueMovedSupport = trueMovedSupport;
+  }
+
+
+  /**
+   * @param support true if any toolbar buttons use $...$ or { } expressions
+   */
+  public void setMutableButtonSupport(boolean support) {
+    mutableButtonLabelSupport = support;
+  }
+
+  /**
+   * @return True if there are toolbar buttons using $...$ or {   } expressions in the module
+   */
+  public boolean isMutableButtonLabelSupport() {
+    return mutableButtonLabelSupport;
+  }
+
+
+
+  /**
+   * @return True if currently suppressing sounds (eg during a Global Key Command)
+   */
+  public boolean isSuppressSounds() {
+    return suppressSounds;
+  }
+
+  /**
+   * @param suppressSounds true if sounds should be suppressed during command processing
+   */
+  public void setSuppressSounds(boolean suppressSounds) {
+    this.suppressSounds = suppressSounds;
+  }
+
+
+  private final Timer zoomTimer = new Timer(1000, e -> suppressAutoCenterUpdate = false);
+
+
+  private boolean suppressAutoCenterUpdate = false;
+
+  public void setSuppressAutoCenterUpdate(boolean suppressAutoCenterUpdate) {
+    this.suppressAutoCenterUpdate = suppressAutoCenterUpdate;
+
+    zoomTimer.stop();
+    if (suppressAutoCenterUpdate) {
+      zoomTimer.start(); // When we do a zoom change, we suppress auto-updating the map center for 1 second. This is only necessary because JScrollbar gives us no way to distinguish actual explicit user scrolling (via the UI) from Viewport changes via other sources (eg repaint after zoom)
+    }
+  }
+
+  public boolean isSuppressAutoCenterUpdate() {
+    return suppressAutoCenterUpdate;
+  }
+
+
+  private KeyCommand locationKeyCommand = null;
+
+  public KeyCommand getLocationKeyCommand() {
+    return locationKeyCommand;
+  }
+
+  public void setLocationKeyCommand(KeyCommand kc) {
+    locationKeyCommand = kc;
+  }
+
 
   private final PropertyChangeListener repaintOnPropertyChange =
     evt -> {
@@ -411,6 +500,15 @@ public class GameModule extends AbstractConfigurable
   private int nextGpId = 0;
   private Long crc = null;
   private Long combinedCrc = null;
+
+  /**
+   * Management of piece property and location cross-references
+   */
+  private final IndexManager indexManager = new IndexManager();
+
+  public IndexManager getIndexManager() {
+    return indexManager;
+  }
 
   /**
    * Error Logging to {@link Chatter}?
@@ -2154,15 +2252,6 @@ public class GameModule extends AbstractConfigurable
 
 
   /**
-   * @return an XML element that can be used to {@link Buildable#build} the module object.
-   */
-  private String buildString() {
-    final Document doc = Builder.createNewDocument();
-    doc.appendChild(getBuildElement(doc));
-    return Builder.toString(doc);
-  }
-
-  /**
    * Gets the value of a module level global property -- this includes identification information for the
    * local player as well as the contents of any Global Property objects defined at module level in the Module.
    * @param key identifies the global property to be returned
@@ -2232,6 +2321,53 @@ public class GameModule extends AbstractConfigurable
     final TranslatableString s = transContainer.getTranslatableString(String.valueOf(key));
     return s == null ? null : s.getPropertyValue();
   }
+
+  @Override
+  public List<String> getPropertyNames() {
+    final List<String> l = new ArrayList<>();
+    l.add(GlobalOptions.PLAYER_SIDE);
+    l.add(GlobalOptions.PLAYER_NAME);
+    l.add(GlobalOptions.PLAYER_ID);
+    l.add(MODULE_NAME_PROPERTY);
+    l.add(MODULE_VERSION_PROPERTY);
+    l.add(MODULE_DESCRIPTION_PROPERTY);
+    l.add(MODULE_VASSAL_VERSION_CREATED_PROPERTY);
+    l.add(MODULE_VASSAL_VERSION_RUNNING_PROPERTY);
+    l.add(MODULE_OTHER1_PROPERTY);
+    l.add(MODULE_OTHER2_PROPERTY);
+    l.add(MODULE_CURRENT_LOCALE);
+    l.add(MODULE_CURRENT_LOCALE_NAME);
+    l.add(DRAWING_MOUSEOVER_PROPERTY);
+    l.add(DRAWING_MOUSEOVER_INDEX_PROPERTY);
+    for (final Map map : Map.getMapList()) {
+      l.add(map.getConfigureName() + IS_VISIBLE);
+    }
+
+    return l;
+  }
+
+  private boolean buttonLabelUpdateScheduled = false;
+
+  /**
+   * A property has changed somewhere, so we need to redraw all the toolbar buttons that use properties
+   */
+  public void updateMutableButtonLabels() {
+    if (!isMutableButtonLabelSupport() || buttonLabelUpdateScheduled) return;
+
+    buttonLabelUpdateScheduled = true;
+
+    SwingUtilities.invokeLater(() -> {
+        buttonLabelUpdateScheduled = false;
+
+        updateToolbarButtons();
+
+        for (final Map map : Map.getMapList()) {
+          map.updateToolbarButtons();
+        }
+      }
+    );
+  }
+
 
   /**
    * Gets the value of a mutable (changeable) "Global Property". Module level Global Properties serve as the

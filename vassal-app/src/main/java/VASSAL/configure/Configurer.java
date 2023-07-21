@@ -226,8 +226,13 @@ public abstract class Configurer {
    *
    * @param visible Hide label if true
    */
-  public void setLabelVisibile(boolean visible) {
+  public void setLabelVisible(boolean visible) {
+  }
 
+  /** @deprecated Use {@link #setLabelVisible} instead. */
+  @Deprecated(since = "2023-01-14", forRemoval = true)
+  public void setLabelVisibile(boolean visible) {
+    setLabelVisible(visible);
   }
 
   /**
@@ -279,6 +284,14 @@ public abstract class Configurer {
    * Initialize any custom controls / keystrokes
    */
   public void initCustomControls(JDialog d, Configurable target) {
+
+  }
+
+  /**
+   * Enable or Disable the action of this configurer/
+   * @param enabled
+   */
+  public void setEnabled(boolean enabled) {
 
   }
 }

@@ -36,17 +36,15 @@ import VASSAL.i18n.Resources;
 import VASSAL.tools.ErrorDialog;
 import VASSAL.tools.FormattedString;
 import VASSAL.tools.SequenceEncoder;
+import org.apache.commons.lang3.StringUtils;
 
+import javax.swing.JLabel;
+import javax.swing.KeyStroke;
 import java.awt.Component;
 import java.beans.PropertyChangeSupport;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Objects;
-
-import javax.swing.JLabel;
-import javax.swing.KeyStroke;
-
-import org.apache.commons.lang3.StringUtils;
 
 /**
  *
@@ -77,7 +75,7 @@ public class SetGlobalProperty extends DynamicProperty {
 
   @Override
   public String getDescription() {
-    return buildDescription("Editor.SetGlobalProperty.trait_description", key, description);
+    return buildDescription("Editor.SetGlobalProperty.trait_description", key, description) + getCommandsList();
   }
 
   @Override
@@ -199,7 +197,6 @@ public class SetGlobalProperty extends DynamicProperty {
     Command comm = new NullCommand();
     for (final DynamicKeyCommand keyCommand : keyCommands) {
       if (keyCommand.matches(stroke)) {
-        MutableProperty prop;
         final String propertyName = (new FormattedString(key)).getText(Decorator.getOutermost(this), this, "Editor.DynamicProperty.property_name");
 
         final ArrayList<MutablePropertiesContainer> propertyContainers =
@@ -224,7 +221,9 @@ public class SetGlobalProperty extends DynamicProperty {
         if (z != null) {
           propertyContainers.add(0, z);
         }
-        prop = MutableProperty.Util.findMutableProperty(propertyName, propertyContainers);
+
+        final MutableProperty prop = MutableProperty.Util.findMutableProperty(propertyName, propertyContainers);
+
         /*
          * Debugging could be painful, so print a useful message in the
          * Chat Window if no property can be found to update.

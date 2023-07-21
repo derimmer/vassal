@@ -1,5 +1,298 @@
-3.6.8 - ???
+3.7.0-beta5 - ???
 
+* 12478: Revert 12077 - Do not return a default value for ObscuredToOthers
+* 12470: Place Marker X Offset should default to 0, not null
+* 12454: BeanShell Editor improvements: larger, multi-line, more properties
+* 12443: Clarified MouseOverViewer documentation
+* 12439: Uniformly handle addition of standard and imported Configurables
+* 12434: FastMatch by Location now respects Deck limits
+* 12433: Attachment Fastmatch: match each piece at most once, limit checking
+    by name
+* 12432: Add missing Sum & Count expressions
+* 12427: Fixed bad links in Reference Manual
+* 12420: Set Piece Property does not work
+* 12403: Extension Editing fixes: Cut & Paste now deletes cut element, Drag &
+    Drop between folders in Extension are saved, stopped
+    UnsupportedOperationException during search
+* 12401: Allow Ctrl-V to be entered as a Key Command
+* 12396: Add missing Global Option message
+* 12392: Replace With Other incorrectly retains existing Marker values when
+    Match Current State is checked
+* 12363: Initialise Global Option preferences that have no Tab name
+* 12347: Refresh Dynamic Properties correctly when they have no value
+* 12341: Expression documentation improvements
+* 12261: Report error if more than one grid added to a Zone
+
+3.7.0-beta4 - 18 June 2023
+
+* 12382: Prevent NPE in Beanshell execution during module initialisation
+* 12362: Rollover component help button goes to MouseOver.html instead of
+    Map.html
+* 12340: Fix inaccurate Hex Grid location reports
+* 12322: Scale summed board locations instead of summing scaled board
+    locations to reduce rounding error
+* 12323: Add Beanshell Range functions
+* 12303: Dynamic button text was resolved too soon
+* 12302: Description field now properly appears with Startup GKC set to send
+    Global Hotkey
+* 12267: Optimize Ranged GKC's and remaining Location based fastmatch options
+
+3.7.0-beta3 - 6 June 2023
+
+* 12342: Fixed bad link in Reference Manual
+* 12315: Prevent NPE in MouseOverStackViewer trying to show top piece of empty
+    stack
+* 12314: Update bundled Java to 20.0.1
+* 12287: Enable text field DnD
+* 12284: Add Danish localization
+* 12279: Default heap raised to 1024MB
+* 12251: New Set Piece Property trait
+* 12243: Startup Global Key Commands can also send a Global Hotkey
+* 12222: Multi-Location Commands: One trait may create actions corresponding to
+    several map locations
+* 12220: Add BorderOutline's property names to the searchable target list
+* 12215: New MarkMoved commands shouldn't default to being displayed if no key
+    commands entered
+* 12208: Hiding disabled toolbar buttons feature removed (reverts 12127)
+* 12205: Area of Effect trait was eating other traits' visibility info in some
+    cases
+* 12203: Properly extract outlines from SVG for NonRectangular
+* 12192: New Attachment trait
+* 12187: Improved Rectangular Grid range metric names and made them translatable
+* 12184: Pivot can have two key commands/angles
+* 12177: Change-property buttons don't generate completely empty chat lines
+* 12176: Add preference to not display Mark Moved status of pieces
+* 12175: Fix stretchy images in chat
+* 12172: Metadata now contains the 'extra' fields, and Module Manager displays
+  them if numeric
+* 11932: Support for setting Scenario Options
+
+3.7.0-beta2 - 30 March 2023
+
+* 12159: Correctly handle install paths containing spaces in VASSAL.sh
+* 12158: List Key Commands tool can be re-opened after closing with X button
+* 12153: Layer traits allow a show-only-if-this-property-true filter
+* 12152: Work around Java bug which prevents displaying Windows file dialogs
+* 12149: BorderOutline trait now accepts two fields
+* 12138: Better editor descriptions of Global Hotkey traits
+* 12137: Editor shows better descriptions for Dynamic Property and Set Global
+    Property traits
+* 12136: Change Property Buttons now have a description field, which is
+    displayed in the editor if filled in
+* 12133: Rollovers automatically shrink scale if the pieces are too wide to
+    fit the screen width
+* 12129: PlaceMarker and ReplaceWithOther can use expression for X/Y offsets
+* 12127: Toolbar buttons disableable by a property (e.g., GKC, ActionButton,
+    etc.) can be set to hide when disabled
+* 12100: Text Labels support <img> tags
+*  4446: Dynamic button labels (can use expressions and $...$ in certain
+    toolbar buttons)
+
+3.7.0-beta1 - 11 March 2023
+
+* 12084: Help menu shows module-specific help items before generic Vassal ones
+* 12080: Zooming in and out no longer loses track of player's preferred center
+    point for map
+* 12077: ObscuredToOthers can be counted on to be 'false' for pieces that
+    don't even have a Mask property
+* 12067: Import/export of groups of items from Editor as XML files (e.g., to
+    transfer between modules)
+* 12060: Editor allows Deck files to be imported into a deck to become
+    permanent part of module
+* 12035: Mouse-over Stack Viewers allow configuring thickness of outer border,
+    and more padding/stretching options
+* 12032: Mark-When-Moved trait can be configured to only flag when piece
+    changes LocationName or Mat. Similarly Map auto-report can be configured
+    to ignore same-location movements.
+* 12003: OldDeckName now supported as a piece property
+* 12001: count_ supported for counting properties in Inventory windows
+* 11969: New Border Outline trait
+* 11964: Mouse-over Stack Viewers can display an image of underlying terrain
+* 11937: SumMat and CountMat functions for Beanshell expressions
+* 11919: Allow DEL/BACKSPACE to be mapped as a hotkey
+* 11918: Startup GKC that fires when player joins or changes sides
+* 11917: Create Non-Rectangular mask directly from SVG outline
+* 11913: Numeric global properties with increments other than 1 and -1 now
+    wrap around correctly
+* 11530: Add new StackPos and StackSize properties to Basic Piece
+* 11523: Area of Effect improvements: Active property, local/global visibility,
+    separate on/off Key Commands
+* 11506: Predefined Setup "menus" with blank names will not be shown
+* 11178: Global Option added to omit empty lines in property setting prompts
+* 11100: Allow begin-logfile and end-logfile to have configurable hotkeys in
+    Global Options
+* 10822: Sounds can be suppressed during GKC processing
+* 10821: Symbolic Dice buttons how have full Action Button capabilities
+    (sounds, hotkeys, etc.)
+* 10820: Make Action Button available on all windows where other similar
+    buttons (e.g., GKC, Multi-Action, etc) are available
+*  4454: Save chat text to file
+
+3.6.19 - 18 May 2023
+
+* 12313: Added MAYBE_MOVED property for 3.7 compatibility
+
+3.6.18 - 18 May 2023
+
+* 12291: Fix incorrect drag offset on Windows with UI scaling > 100%
+* 12256: Work around Java's use of incorrect gamma for grayscale + alpha PNGs
+
+3.6.17 - 23 April 2023
+
+* 12250: Adjusted TilingHandler to simplify VASL and VSQL custom tilers
+* 12248: Don't NPE when handling setup errors
+* 12247: Fix error dialog broken since 3.6.15 for exceptions with null messages
+* 12238: Upgrade bundled Java from 19 to 20
+* 12237: Fix edge case Mat Refresh bugs
+* 12234: Don't try to render SVG which would have a width or height of zero
+* 12233: Ensure that OpMultiResolutionImage.getBaseImage() never returns null
+
+3.6.16 - 17 April 2023
+
+* 12232: Notify user about mismatch between module and save version instead of
+    throwing IllegalStateException
+* 12231: Check that all tiles exist for an image when tiling, not just 0,0@1:1
+* 12221: Fixed various missing searchability on various components
+* 12209: Report correct trait in expression Audit Trail
+* 12159: Correctly handle install paths containing spaces in VASSAL.sh
+* 12158: List Key Commands tool can be re-opened after closing with X button
+* 12152: Work around Java bug which prevents displaying Windows file dialogs
+
+3.6.15 - 28 March 2023
+
+* 12140: Action Buttons on pieces that have just been drag-moved are
+  suppressed for a half second for user-error avoidance
+* 12119: Restore vanished Load Comments
+* 12116: Pieces shouldn't receive same GKC twice just because it sent them to
+    a new map
+* 12105: Deck's 'Send-to-Deck' subcomponent has access to properties (e.g.,
+    PlayerSide) and properly shuffles "always shuffle" decks
+* 12093: Fix disabling of toolbar items nested in multiple Toolbar Menus
+* 12085: Screen capture default icon height adjusted to match the other
+    16-pixel-high icons
+* 12069: Tiling: Improved detection of and recovery from running out of memory;
+    improved error dialogs
+*  9894: Improved error dialog for failure to start child process
+
+3.6.14 - 1 March 2023
+
+* 12065: Reduce update check delay to 5 days, from 10
+* 12063: Fixed Deck save/load hotkeys being mixed up
+* 12061: Fixed bug with pasting invalid/incomplete regex expressions
+* 12059: Various PMD and Spotbugs fixes
+* 12049: Duplicating a prototype no longer disables that prototype until next
+    module reload
+* 12048: Fix bugs when deleting groups of decks/stacks from the editor
+* 12041: Rollover border color of 'no color' did not save to file, nor copy
+    correctly
+* 11249: Enhanced recursion protection to catch self-referencing prototypes
+
+3.6.13 - 24 February 2023
+
+* 12042: Fix bug when copying Decks and At-Start Stacks to other maps
+* 12037: Fix concurrent modification exception in Decks
+* 12016: Fix a possible crash scenario in At-Start Stacks
+* 11995: ActionButtons with reports shouldn't display them if report is empty
+* 11967: When dragging piece out of face-down deck, use unrotated shape
+* 11897: Ensure that deleted extensions don't crash the Module Manager
+* 11693: Prevent NPE when copying folders containing Mouse-over Stack Viewers
+* 11451: Don't permit drag-and-drop within PlaceMarker, Replace with Other
+    selection dialogs
+* 11173: Fixed crash in sorting a deck
+* 10877: Added a 'player joined' message when playing online
+*  9786: Text Label traits will respond to GameRefresher (unless trait has a
+    manually-change-label hotkey defined)
+
+3.6.12 - 16 February 2023
+
+* 12013: Reinstate removal of module tile cache when a module is removed from
+    the Module Manager
+* 12007: Update Apple Silicon terminology in preferences and docs
+* 11994: Deck "send-when-empty" hotkeys no longer create extra undo steps
+* 11993: ActionButtons set to count 0 times don't spuriously execute 1 time
+* 11986: Add missing Section size symbol to NATO markers
+* 11982: Fixed multiplayer problems with detach option on Deselect trait
+* 11963: SendToLocation, Can Rotate, and MoveFixedDistance were all unlinking
+    from deck/stack at wrong time, causing buggy behavior in some instances
+    especially involving decks
+* 11961: Clear up mark-when-moved problems for modules which still had a
+    legacy value set
+* 11957: Spaces in GKC reports made consistent with all other reports
+* 11935: Allow option for only first Mouseover-stack Viewer that generates a
+    tooltip will be drawn
+* 11884: 'OldMat' properties now set correctly regardless of order of Mat
+    Cargo and Send-to-Location (etc.) traits
+* 11880: Triggers set to count 0 times don't spuriously execute 1 time
+* 11714: Deck's Send-when-Empty key now processes AFTER fully moving last card
+* 11627: ActionButtons with context menu flag no longer trigger context menu
+    when a different ActionButton on same piece (that doesn't have the flag
+    set) is clicked
+* 11462: Don't +1 inventory sum if property isn't even defined
+* 11437: Prevent NPE when right-clicking on a Deck with no menu items
+* 11429: Deck Empty Hotkey no longer repeats per online player instance, nor
+    when stepping forward a log
+
+3.6.11 - 3 February 2023
+
+* 11941: Since 3.6.7, French/Belgian AZERTY keyboards on Mac were experiencing
+    problems with Ctrl / Alt keys on the number key row
+* 11938: IndexOutOfBoundsException trying to open a private note
+* 11933: At-Start stacks were getting confused by blank boards
+* 11929: Show translated module name and descriptions in Module Manager
+* 11924: Reinstate translation of Player Sides
+* 11911: Debug window shows board-relative coordinates if they are different
+    from the map-relative ones
+* 11906: MatCargo's mat detection did unnecessary computations for lack of
+    parentheses
+* 11904: Global Key Command fastmatch for Mats fixed to avoid trait-order bugs
+* 11901: Corrected "Mark When Moved" documentation
+* 11900: Clear Tile Cache with more efficient Files.walkFileTree()
+* 11899: Hide FileConfigurer label in preferences dialogs
+* 11890: NPE when current-stack option used on non-stacking piece
+* 11505: Insert items into formatted strings from drop-down list into the
+    correctly selected position
+
+3.6.10 - 11 January 2023
+
+* 11883: Fixed order of labels for "Select play mode" and "Enter your name"
+    steps in the Welcome Wizard
+* 11879: NPE when cutting and pasting a GlobalPropertyFolder
+* 11860: Warn when same piece is both Mat and Mat Cargo
+* 11858: Clear all PieceSlot caches after loading extensions
+* 11846: Protect from null property results during search
+* 11823: NPE in GameRefresher when refreshing unnamed Decks
+* 11813: NPE in PieceSlot.getLocalizedConfigureName()
+* 11759: Do not allow negative number of Dice or Sides
+* 11748: NPE when cutting and pasting a prototype folder
+* 11455: Prevent NPE when adding empty KeyStrokes to list
+* 11452: Prevent NPE if invalid file specified in img tag
+
+3.6.9 - 14 December 2022
+
+* 11825: BoundsTracker once again repaints entire maps, reverting 11521
+* 11821: Include the AreaOfEffect bounds in the piece bounding box only if the
+    AoE is visible
+* 11814: Ensure that valid BasicName property is used to identify piece when
+    no translation is available
+* 11808: PieceCloner.clonePiece() should not expand inner pieces unconditionally
+* 11806: NotesWindow re-open assigns focus properly to retain caret position
+* 11805: Fixed NPE: tab.getTitleAt() can return null, so check for that
+* 11804: Log element name on build exception, if available
+* 11803: Report exceptions thrown while loading modules
+
+3.6.8 - 29 November 2022
+
+* 11798: Added Chinese translation
+* 11796: Added Polish translation
+* 11790: Updated bundled Java to 19 for Windows and MacOS
+* 11778: System.setProperty() in BugDialog throws if the value is null
+* 11727: Fixed incorrect properties file path, which prevents working on
+    translations
+* 11716: Dereference symbolic link to executable before attemping to find
+    install dir
+* 11704: Added Place Marker editor hotkeys
+* 11700: Irregular Grid editor - add region with Insert or Ctrl+Right Click
+* 11678: Prevent clearing the tile cache when a module is open
 * 11630: Use default font for all context menus
 * 11622: Added support for Open Recent... submenu
 * 11617: Closing a reopenable Map should not close game

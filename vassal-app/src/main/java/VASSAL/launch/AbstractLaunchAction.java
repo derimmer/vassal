@@ -17,35 +17,6 @@
 
 package VASSAL.launch;
 
-import java.awt.Dimension;
-import java.awt.Window;
-import java.awt.event.ActionEvent;
-import java.io.File;
-import java.io.IOException;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.zip.ZipFile;
-
-import javax.swing.AbstractAction;
-import javax.swing.SwingWorker;
-import javax.swing.JOptionPane;
-
-import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.lang3.SystemUtils;
-import org.apache.commons.lang3.tuple.Pair;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import VASSAL.Info;
 import VASSAL.build.module.ExtensionsManager;
 import VASSAL.build.module.GlobalOptions;
@@ -53,6 +24,7 @@ import VASSAL.build.module.metadata.AbstractMetaData;
 import VASSAL.build.module.metadata.MetaDataFactory;
 import VASSAL.build.module.metadata.ModuleMetaData;
 import VASSAL.configure.DirectoryConfigurer;
+import VASSAL.i18n.Resources;
 import VASSAL.preferences.Prefs;
 import VASSAL.preferences.ReadOnlyPrefs;
 import VASSAL.tools.ErrorDialog;
@@ -66,7 +38,31 @@ import VASSAL.tools.filechooser.ModuleFileFilter;
 import VASSAL.tools.io.ProcessLauncher;
 import VASSAL.tools.io.ProcessWrapper;
 import VASSAL.tools.lang.MemoryUtils;
-import VASSAL.i18n.Resources;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.lang3.SystemUtils;
+import org.apache.commons.lang3.tuple.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.swing.AbstractAction;
+import javax.swing.JOptionPane;
+import javax.swing.SwingWorker;
+import java.awt.Dimension;
+import java.awt.Window;
+import java.awt.event.ActionEvent;
+import java.io.File;
+import java.io.IOException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.zip.ZipFile;
 
 /**
  *
@@ -86,7 +82,7 @@ public abstract class AbstractLaunchAction extends AbstractAction {
   // memory-related constants
   //
   protected static final int PHYS_MEMORY;
-  protected static final int DEFAULT_MAXIMUM_HEAP = 512;
+  public static final int DEFAULT_MAXIMUM_HEAP = 1024;
   protected static final int FAILSAFE_MAXIMUM_HEAP = 128;
 
   static {
@@ -100,8 +96,11 @@ public abstract class AbstractLaunchAction extends AbstractAction {
   protected final String entryPoint;
   protected final LaunchRequest lr;
 
-  protected static final Map<File, Integer> using =
-    Collections.synchronizedMap(new HashMap<>());
+  private static final UseTracker useTracker = new UseTracker();
+
+  public static UseTracker getUseTracker() {
+    return useTracker;
+  }
 
   public AbstractLaunchAction(String name, Window window,
                               String entryPoint, LaunchRequest lr) {
@@ -113,11 +112,18 @@ public abstract class AbstractLaunchAction extends AbstractAction {
   }
 
   /**
+   * @return <code>true</code> iff any files are in use
+   */
+  public static boolean anyInUse() {
+    return useTracker.anyInUse();
+  }
+
+  /**
    * @param file the file to check
    * @return <code>true</code> iff the file is in use
    */
   public static boolean isInUse(File file) {
-    return using.containsKey(file);
+    return useTracker.isInUse(file);
   }
 
   /**
@@ -125,23 +131,23 @@ public abstract class AbstractLaunchAction extends AbstractAction {
    * @return <code>true</code> iff the file is being edited
    */
   public static boolean isEditing(File file) {
-    return Integer.valueOf(-1).equals(using.get(file));
+    return useTracker.isEditing(file);
   }
 
   protected static void incrementUsed(File file) {
-    using.merge(file, 1, Integer::sum);
+    useTracker.incrementUsed(file);
   }
 
   protected static void decrementUsed(File file) {
-    using.merge(file, 0, (v, n) -> v == 1 ? null : v - 1);
+    useTracker.decrementUsed(file);
   }
 
   protected static void markEditing(File file) {
-    using.put(file, -1);
+    useTracker.markEditing(file);
   }
 
   protected static void unmarkEditing(File file) {
-    using.remove(file);
+    useTracker.unmarkEditing(file);
   }
 
   /** {@inheritDoc} */
@@ -544,6 +550,15 @@ public abstract class AbstractLaunchAction extends AbstractAction {
       result.add("");   // reserved for initial heap
       result.add("");   // reserved for maximum heap
 
+      if (SystemUtils.IS_OS_WINDOWS) {
+        final String noAgent = System.getProperty("VASSAL.noagent");
+        if (noAgent == null) {
+          result.add("-javaagent:lib\\vassal-agent.jar");
+          result.add("--add-opens");
+          result.add("java.desktop/sun.awt.shell=ALL-UNNAMED");
+        }
+      }
+
       result.addAll(new CustomVmOptions().getCustomVmOptions());
 
       // pass on the user's home, if it's set
@@ -577,7 +592,8 @@ public abstract class AbstractLaunchAction extends AbstractAction {
         result.add("-Xdock:name=" + d_name); //NON-NLS
         result.add("-Xdock:icon=" + d_icon); //NON-NLS
 
-        // M1 Macs need FBOs disabled in OpenGL, at least until Metal in Java 17
+        // Apple Silicon Macs need FBOs disabled in OpenGL, at least until
+        // Metal in Java 17
         final Boolean disableOGLFBO =
           (Boolean) Prefs.getGlobalPrefs().getValue(Prefs.DISABLE_OGL_FBO);
         if (Boolean.TRUE.equals(disableOGLFBO)) {
