@@ -89,8 +89,9 @@ import VASSAL.configure.IntConfigurer;
 import VASSAL.configure.MandatoryComponent;
 import VASSAL.configure.NamedHotKeyConfigurer;
 import VASSAL.configure.PlayerIdFormattedExpressionConfigurer;
-import VASSAL.configure.SingleChildInstance;
+import VASSAL.configure.UniquelyNamedChildren;
 import VASSAL.configure.VisibilityCondition;
+import VASSAL.counters.BasicPiece;
 import VASSAL.counters.ColoredBorder;
 import VASSAL.counters.Deck;
 import VASSAL.counters.DeckVisitor;
@@ -180,6 +181,7 @@ import java.awt.event.MouseMotionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Point2D;
 import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -758,6 +760,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
       addChild(new ImageSaver());
       addChild(new CounterDetailViewer());
       addChild(new Flare());
+      addChild(new Zoomer());
       setMapName(Resources.getString("Map.main_map"));
     }
 
@@ -962,20 +965,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
       new MandatoryComponent(this, BoardPicker.class),
       new MandatoryComponent(this, StackMetrics.class))
       .append(idMgr)
-      .append(new SingleChildInstance(this, Zoomer.class))
-      .append(new SingleChildInstance(this, HighlightLastMoved.class))
-      .append(new SingleChildInstance(this, Scroller.class))
-      .append(new SingleChildInstance(this, ForwardToChatter.class))
-      .append(new SingleChildInstance(this, MenuDisplayer.class))
-      .append(new SingleChildInstance(this, MapCenterer.class))
-      .append(new SingleChildInstance(this, StackExpander.class))
-      .append(new SingleChildInstance(this, PieceMover.class))
-      .append(new SingleChildInstance(this, KeyBufferer.class))
-      .append(new SingleChildInstance(this, ForwardToKeyBuffer.class))
-      .append(new SingleChildInstance(this, GlobalProperties.class))
-      .append(new SingleChildInstance(this, SelectionHighlighters.class))
-      .append(new SingleChildInstance(this, LayeredPieceCollection.class))
-      .append(new SingleChildInstance(this, BoardPicker.class));
+      .append(new UniquelyNamedChildren(this, MapShader.class));
 
     final DragGestureListener dgl = dge -> {
       if (dragGestureListener != null &&
@@ -1215,7 +1205,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
 
   public int getMaxPixelsPerRangeUnit(Point p) {
     final Board b = findBoard(p);
-    return b == null ? null : b.getGrid().getMaxPixelsPerRangeUnit(p);
+    return (b == null || b.getGrid() == null) ? 1 : b.getGrid().getMaxPixelsPerRangeUnit(p);
   }
 
   /**
@@ -2375,7 +2365,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
     final double os_scale = g2d.getDeviceConfiguration().getDefaultTransform().getScaleX();
     final double dzoom = getZoom() * os_scale;
     for (final Board b : boards) {
-      b.drawRegion(g, getLocation(b, dzoom), visibleRect, dzoom, c);
+      b.drawRegion2D(g, getLocation2D(b, dzoom), visibleRect, dzoom, c);
     }
   }
 
@@ -2731,6 +2721,33 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
     return p;
   }
 
+  public Point2D getLocation2D(Board b, double zoom) {
+    final Point2D p;
+    if (zoom == 1.0) {
+      p = b.bounds().getLocation();
+    }
+    else {
+      final Point relPos = b.relativePosition();
+      p = getLocation2D(relPos.x, relPos.y, zoom);
+      p.setLocation(p.getX() + zoom * edgeBuffer.width, p.getY() + zoom * edgeBuffer.height);
+    }
+    return p;
+  }
+
+  protected Point2D getLocation2D(int column, int row, double zoom) {
+    final Point2D p = new Point2D.Double();
+    int dx = 0;
+    for (int x = 0; x < column; ++x) {
+      dx += boardWidths[x][row];
+    }
+    int dy = 0;
+    for (int y = 0; y < row; ++y) {
+      dy += boardHeights[column][y];
+    }
+    p.setLocation(p.getX() + zoom * dx, p.getY() + zoom * dy);
+    return p;
+  }
+
   /**
    * Draw the boards of the map at the given point and zoom factor onto
    * the given Graphics object
@@ -2797,6 +2814,9 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
   public Object getProperty(Object key) {
     final Object value;
 
+    if (BasicPiece.CURRENT_MAP.equals(key)) {
+      return getMapName();
+    }
     final MutableProperty p = propsContainer.getMutableProperty(String.valueOf(key));
     if (p != null) {
       value = p.getPropertyValue();
@@ -2816,6 +2836,9 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
   @Override
   public Object getLocalizedProperty(Object key) {
     Object value = null;
+    if (BasicPiece.CURRENT_MAP.equals(key)) {
+      return getMapName();
+    }
     final MutableProperty p = propsContainer.getMutableProperty(String.valueOf(key));
     if (p != null) {
       value = p.getPropertyValue();
@@ -2824,6 +2847,16 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
       value = GameModule.getGameModule().getLocalizedProperty(key);
     }
     return value;
+  }
+
+
+  @Override
+  // Even though the IS_VISIBLE Map property is handled by GameModule, pretend it is satisfied here so that
+  // it appears under the map in the Function Builder menu
+  public List<String> getPropertyNames() {
+    final List<String> l = new ArrayList<>();
+    l.add(getConfigureName() + GameModule.IS_VISIBLE);
+    return l;
   }
 
   /**
@@ -3252,7 +3285,7 @@ public class Map extends AbstractToolbarItem implements GameComponent, MouseList
    */
   public void updateCenter() {
     if (!GameModule.getGameModule().isSuppressAutoCenterUpdate()) {
-      preferredCenter = getCenter();
+      preferredCenter = componentToMap(getCenter());
     }
   }
 

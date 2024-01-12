@@ -80,6 +80,7 @@ public class ChangePropertyButton extends AbstractToolbarItem implements Propert
     ));
 
     launch = getLaunchButton(); // for compatibility
+    propChangeConfig.setContext(getAncestor());
   }
 
   public void launch() {
@@ -107,6 +108,8 @@ public class ChangePropertyButton extends AbstractToolbarItem implements Propert
 
   protected String getNewValue() {
     String newValue = getPropertyChanger().getNewValue(property.getPropertyValue());
+    // null result means Cancel button was hit on a prompt dialog, revert to old value
+    if (newValue == null) newValue = property.getPropertyValue();
     format.setFormat(newValue);
     newValue = format.getText(property, this, "Editor.PropertyChangeConfigurer.new_value");
     return newValue;
@@ -156,7 +159,9 @@ public class ChangePropertyButton extends AbstractToolbarItem implements Propert
   public static class PropChangerOptions implements ConfigurerFactory {
     @Override
     public Configurer getConfigurer(AutoConfigurable c, String key, String name) {
-      return ((ChangePropertyButton)c).propChangeConfig;
+      final Configurer cfg = ((ChangePropertyButton)c).propChangeConfig;
+      cfg.setContext(c);
+      return cfg;
     }
   }
 

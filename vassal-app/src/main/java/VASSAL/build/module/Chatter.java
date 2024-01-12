@@ -55,7 +55,6 @@ import javax.swing.undo.UndoManager;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.FontMetrics;
 import java.awt.dnd.DropTarget;
 import java.awt.dnd.DropTargetDragEvent;
 import java.awt.dnd.DropTargetDropEvent;
@@ -89,7 +88,6 @@ public class Chatter extends JPanel implements CommandEncoder, Buildable, DropTa
 
   protected JTextField input;
   protected JScrollPane scroll = new ScrollPane(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-  protected JScrollPane scroll2 = new ScrollPane(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
   protected static final String MY_CHAT_COLOR = "HTMLChatColor";          //$NON-NLS-1$ // Different tags to "restart" w/ new default scheme
   protected static final String OTHER_CHAT_COLOR = "HTMLotherChatColor";     //$NON-NLS-1$
   protected static final String GAME_MSG1_COLOR = "HTMLgameMessage1Color";  //$NON-NLS-1$
@@ -139,6 +137,9 @@ public class Chatter extends JPanel implements CommandEncoder, Buildable, DropTa
     }
 
     conversationPane.setEditable(false);
+    conversationPane.getCaret().setVisible(false);
+    conversationPane.setCaretColor(new Color(0, 0, 0, 0));
+
     conversationPane.addComponentListener(new ComponentAdapter() {
       @Override
       public void componentResized(ComponentEvent e) {
@@ -194,13 +195,15 @@ public class Chatter extends JPanel implements CommandEncoder, Buildable, DropTa
       um.discardAllEdits();
     });
 
-    final FontMetrics fm = getFontMetrics(myFont);
-    final int fontHeight = fm.getHeight();
-
-    conversationPane.setPreferredSize(new Dimension(input.getMaximumSize().width, fontHeight * 10));
-
     scroll.setViewportView(conversationPane);
     scroll.getVerticalScrollBar().setUnitIncrement(input.getPreferredSize().height); //Scroll this faster
+
+    final int fontHeight = getFontMetrics(myFont).getHeight();
+    setPreferredSize(new Dimension(
+      input.getMaximumSize().width,
+      input.getPreferredSize().height + 10 * fontHeight
+    ));
+
     add(scroll);
     add(input);
 
@@ -325,12 +328,9 @@ public class Chatter extends JPanel implements CommandEncoder, Buildable, DropTa
       }
     });
 
-    setPreferredSize(new Dimension(input.getMaximumSize().width, input.getPreferredSize().height + conversationPane.getPreferredSize().height));
-
     // Accept dropped files
     dt = new DropTarget(conversationPane, this);
   }
-
 
   /**
    * Because our Chatters make themselves visible in their constructor, providing a way for an overriding class to
@@ -442,7 +442,7 @@ public class Chatter extends JPanel implements CommandEncoder, Buildable, DropTa
     // still free to insert <span> tags and <img> tags and the like in Report
     // messages.
     try {
-      kit.insertHTML(doc, doc.getLength(), "\n<div class=" + style + ">" + s + "</div>", 0, 0, null); //NON-NLS
+      kit.insertHTML(doc, doc.getLength(), "\n<div class=\"" + style + "\">" + s + "</div>", 0, 0, null); //NON-NLS
     }
     catch (BadLocationException | IOException ble) {
       ErrorDialog.bug(ble);
@@ -748,20 +748,21 @@ public class Chatter extends JPanel implements CommandEncoder, Buildable, DropTa
     else if (e.isOnKeyRelease()) {
       switch (e.getKeyCode()) {
       case KeyEvent.VK_ENTER:
-        if (!input.getText().isEmpty())
+        if (!input.getText().isEmpty()) {
           send(formatChat(input.getText()), input.getText());
+        }
         input.setText(""); //$NON-NLS-1$
         break;
       case KeyEvent.VK_BACK_SPACE:
       case KeyEvent.VK_DELETE:
         final String s = input.getText();
-        if (!s.isEmpty())
+        if (!s.isEmpty()) {
           input.setText(s.substring(0, s.length() - 1));
+        }
         break;
       }
     }
   }
-
 
   /**
    * This is a {@link Command} object that, when executed, displays
@@ -846,6 +847,16 @@ public class Chatter extends JPanel implements CommandEncoder, Buildable, DropTa
   @Override
   public void drop(DropTargetDropEvent dtde) {
     GameModule.getGameModule().getGameState().dropFile(dtde);
+  }
+
+  @Override
+  public boolean isMandatory() {
+    return true;
+  }
+
+  @Override
+  public boolean isUnique() {
+    return true;
   }
 }
 

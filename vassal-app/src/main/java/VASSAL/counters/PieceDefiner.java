@@ -23,6 +23,7 @@ import VASSAL.build.GpIdSupport;
 import VASSAL.build.module.KeyNamer;
 import VASSAL.build.module.documentation.HelpFile;
 import VASSAL.build.widget.PieceSlot;
+import VASSAL.configure.ConfigureTree;
 import VASSAL.configure.IntConfigurer;
 import VASSAL.i18n.Resources;
 import VASSAL.preferences.Prefs;
@@ -82,6 +83,8 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
+import java.util.Collections;
+import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -103,7 +106,7 @@ public class PieceDefiner extends JPanel {
   // A reduced inset size for the icon buttons gives a better look
   private static final Insets buttonInsets = new Insets(1, 2, 1, 2);
 
-  // Some empty space around the rendered Piece Image so it doesn't look to crammed
+  // Some empty space around the rendered Piece Image, so it doesn't look too crammed
   private static final int PIECE_IMAGE_INSET = 10;
 
   protected static DefaultListModel<GamePiece> availableModel;
@@ -154,7 +157,7 @@ public class PieceDefiner extends JPanel {
 
     initDefinitions();
     inUseModel = new DefaultListModel<>();
-    r = new Renderer();
+    r = new Renderer(this);
     availableRenderer = new AvailableRenderer();
     slot = new ScaleablePieceSlot();
     initComponents();
@@ -162,6 +165,10 @@ public class PieceDefiner extends JPanel {
     setChanged(false);
     gpidSupport = GameModule.getGameModule().getGpIdSupport();
     prototypeName = "";
+  }
+
+  public boolean isPrototype() {
+    return !prototypeName.isEmpty();
   }
 
   public PieceDefiner(String id, GpIdSupport s) {
@@ -190,8 +197,8 @@ public class PieceDefiner extends JPanel {
     // Add piece to the standard model
     availableModel.addElement(piece);
 
-    // Store the piece in a SortedMap, order by translated trait description
-    alphaMap.put(((EditablePiece) piece).getDescription(), piece);
+    // Store the piece in a SortedMap, order by translated base trait description
+    alphaMap.put(((EditablePiece) piece).getBaseDescription(), piece);
   }
 
 
@@ -204,6 +211,7 @@ public class PieceDefiner extends JPanel {
       addElement(new BorderOutline());
       addElement(new Delete());
       addElement(new Clone());
+      addElement(new Comment());
       addElement(new Embellishment());
       addElement(new UsePrototype());
       addElement(new Labeler());
@@ -236,7 +244,6 @@ public class PieceDefiner extends JPanel {
       addElement(new Marker());
       addElement(new DynamicProperty());
       addElement(new CalculatedProperty());
-      addElement(new SetAttachmentProperty());
       addElement(new SetGlobalProperty());
       addElement(new SetPieceProperty());
       addElement(new Deselect());
@@ -257,7 +264,7 @@ public class PieceDefiner extends JPanel {
   }
 
   /**
-   * Add an additional definition to the list of available traits.
+   * Add another definition to the list of available traits.
    * Add to the bottom of the classic list
    * Regenerate the Alpha list
    * reset the model depending on the sort setting
@@ -340,7 +347,7 @@ public class PieceDefiner extends JPanel {
 
   /**
    *
-   * Re-calculate how to layout the left hand Piece display panel.
+   * Re-calculate how to lay out the left hand Piece display panel.
    *
    * 1. Always try and show the entire image 100% scale, plus PIECE_IMAGE_BORDER pixels
    * 2. If the image can't fit in the available space, scale it until it can
@@ -423,7 +430,7 @@ public class PieceDefiner extends JPanel {
     public void keyTyped(KeyEvent e) {
       final char ch = e.getKeyChar();
 
-      // ignore searches for non alpha-numeric characters
+      // ignore searches for non-alphanumeric characters
       if (!Character.isLetterOrDigit(ch)) {
         return;
       }
@@ -467,7 +474,7 @@ public class PieceDefiner extends JPanel {
     setLayout(new MigLayout("ins 0, fill")); // NON-NLS
 
     // A Panel to hold the trait lists
-    controls = new JPanel(new MigLayout("ins 0, fill", "[grow 1,:200:]rel[]rel[grow 4,:400:]rel[]", "[grow][][]")); // NON-NLS
+    controls = new JPanel(new MigLayout("ins 0, fill", "[grow 1,200!]rel[]rel[grow 4,:600:]rel[]", "[grow]0")); // NON-NLS
 
     // A Panel to hold the generated PieceSlot image
     slotPanel = new JPanel(new MigLayout("ins 0", "push[]push", "push[]2[]push")); // NON-NLS
@@ -480,7 +487,7 @@ public class PieceDefiner extends JPanel {
     splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, true, slotPanel, controls);
     splitPane.addPropertyChangeListener(JSplitPane.DIVIDER_LOCATION_PROPERTY, e -> splitChanged());
 
-    // Set a MouseListener on the Divider so we can distinguish manual drags from auto-resizes
+    // Set a MouseListener on the Divider, so we can distinguish manual drags from auto-resizes
     final SplitPaneUI spui = splitPane.getUI();
     if (spui instanceof BasicSplitPaneUI) {
       ((BasicSplitPaneUI) spui).getDivider().addMouseListener(new MouseAdapter() {
@@ -559,10 +566,7 @@ public class PieceDefiner extends JPanel {
     final JScrollPane availableScroll = new JScrollPane(availableListPanel);
 
     availableScroll.setBorder(BorderFactory.createTitledBorder(Resources.getString("Editor.PieceDefiner.available_traits")));
-    availablePanel.add(availableScroll, "grow,push"); // NON-NLS
-
-    // A Panel to hold the Help and Import button below the Available Traits
-    final JPanel availableButtonPanel = new JPanel(new MigLayout("ins 0", "push[]rel[]rel[]push")); // NON-NLS
+    availablePanel.add(availableScroll, "grow,push,wrap"); // NON-NLS
 
     helpButton = new JButton(Resources.getString("General.help"));
     helpButton.setToolTipText(Resources.getString("Editor.PieceDefiner.help_tip"));
@@ -577,13 +581,11 @@ public class PieceDefiner extends JPanel {
       importPiece(className);
     });
 
-    availableButtonPanel.add(importButton, "sg 2"); // NON-NLS
-    availableButtonPanel.add(helpButton, "sg 2"); // NON-NLS
     controls.add(availablePanel, "grow,pushy"); // NON-NLS
 
     // A Panel holding the add and Remove buttons between the two trait lists
     final JPanel addRemovePanel = new JPanel();
-    addRemovePanel.setLayout(new MigLayout("ins 0,wrap 1")); // NON-NLS
+    addRemovePanel.setLayout(new MigLayout("ins 0,wrap 1", "[]", "[][][]20[][]")); // NON-NLS
 
     addButton = new JButton(Resources.getString("Editor.PieceDefiner.add"), IconFactory.getIcon("go-next", IconFamily.SMALL)); // NON-NLS
     addButton.setHorizontalTextPosition(SwingUtilities.LEFT);
@@ -598,11 +600,13 @@ public class PieceDefiner extends JPanel {
     removeButton.addActionListener(evt -> doRemove());
     addRemovePanel.add(removeButton, "sg"); // NON-NLS
     addRemovePanel.add(pieceIdLabel, "center"); // NON-NLS
+    addRemovePanel.add(importButton, "sg");
+    addRemovePanel.add(helpButton, "sg");
 
     controls.add(addRemovePanel, "aligny center"); // NON-NLS
 
     // The list of traits in use in this GamePiece
-    final JPanel inUsePanel = new JPanel(new MigLayout("ins 0,wrap 1,fill")); // NON-NLS
+    final JPanel inUsePanel = new JPanel(new MigLayout("ins 0,wrap 1,fill", "[]", "[]rel[]0[]")); // NON-NLS
     inUseList = new JList<>();
     inUseList.setName(INUSE);
     inUseList.setDragEnabled(true);
@@ -745,9 +749,9 @@ public class PieceDefiner extends JPanel {
     inUseListPanel.add(inUseList, BorderLayout.CENTER);
     final JScrollPane inUseScroll = new JScrollPane(inUseListPanel);
     inUseScroll.setBorder(BorderFactory.createTitledBorder(Resources.getString("Editor.PieceDefiner.current_traits")));
-    inUsePanel.add(inUseScroll, "grow"); // NON-NLS
+    inUsePanel.add(inUseScroll, "grow,push,wrap"); // NON-NLS
 
-    // A panel holding the cut/paste/propertiues buttons below the In Use traits
+    // A panel holding the cut/paste/properties buttons below the In Use traits
     final JPanel inUseButtonPanel = new JPanel(new MigLayout("ins 0", "push[]rel[]rel[]push")); // NON-NLS
     copyButton = new JButton(Resources.getString("Editor.copy") + " (" + getCtrlKeyName('C') + ")");
     copyButton.addActionListener(evt -> doCopy());
@@ -765,9 +769,18 @@ public class PieceDefiner extends JPanel {
       }
     });
 
-    inUseButtonPanel.add(propsButton, "sg 1"); // NON-NLS
+    inUseButtonPanel.add(propsButton, "sg 1,wrap"); // NON-NLS
 
+    // A label to hold the notes at the bottom of the screen
+    final JLabel noteLabel = new JLabel(Resources.getString("Editor.PieceDefiner.note1"));
+    final Font standardFont = noteLabel.getFont();
+    final Font italicFont = new Font(standardFont.getFontName(), Font.ITALIC, standardFont.getSize());
+    noteLabel.setFont(italicFont);
+
+    inUsePanel.add(inUseButtonPanel, "center,wrap"); // NON-NLS
+    inUsePanel.add(noteLabel, "center"); // NON-NLS
     controls.add(inUsePanel, "grow"); // NON-NLS
+
 
     // A panel to hold the trait navigation buttons.
     final JPanel moveUpDownPanel = new JPanel(new MigLayout("ins 0,wrap 1")); // NON-NLS
@@ -821,18 +834,6 @@ public class PieceDefiner extends JPanel {
     moveUpDownPanel.add(moveBottomButton, "sg"); // NON-NLS
 
     controls.add(moveUpDownPanel, "wrap"); // NON-NLS
-
-    controls.add(availableButtonPanel, "center"); // NON-NLS
-    controls.add(new JLabel(""));
-    controls.add(inUseButtonPanel, "center,wrap"); // NON-NLS
-
-    // A label to hold the notes at the bottom of the screen
-    final JLabel noteLabel = new JLabel(Resources.getString("Editor.PieceDefiner.note1"));
-    final Font standardFont = noteLabel.getFont();
-    final Font italicFont = new Font(standardFont.getFontName(), Font.ITALIC, standardFont.getSize());
-    noteLabel.setFont(italicFont);
-
-    controls.add(noteLabel, "span 3,center"); // NON-NLS
 
   }
 
@@ -1031,12 +1032,12 @@ public class PieceDefiner extends JPanel {
       return;
     }
 
-    // Remove the piece from it's current position
+    // Remove the piece from its current position
     final GamePiece piece = removeDecorator(fromIndex);
 
     // Insert it at the new position.
     // The piece has already been removed from its old location, so if we are moving down,
-    // substract one from the toIndex as the list entries below us will have shifted up.
+    // subtract one from the toIndex as the list entries below us will have shifted up.
     final int actualToIndex = toIndex > fromIndex ? toIndex - 1 : toIndex;
     insertDecorator(actualToIndex, piece);
 
@@ -1173,12 +1174,12 @@ public class PieceDefiner extends JPanel {
     PieceEditor ed;
 
     private Ed(Frame owner, final EditablePiece p) {
-      super(owner, Resources.getString("Editor.PieceDefiner.properties", p.getDescription()), true);
+      super(owner, Resources.getString("Editor.PieceDefiner.properties", p.getBaseDescription()), true);
       initialize(p);
     }
 
     private Ed(Dialog owner, final EditablePiece p) {
-      super(owner, Resources.getString("Editor.PieceDefiner.properties", p.getDescription()), true);
+      super(owner, Resources.getString("Editor.PieceDefiner.properties", p.getBaseDescription()), true);
       initialize(p);
     }
 
@@ -1277,20 +1278,52 @@ public class PieceDefiner extends JPanel {
   private static class Renderer extends DefaultListCellRenderer {
     private static final long serialVersionUID = 1L;
 
+    private final PieceDefiner definer;
+
+    Renderer(PieceDefiner definer) {
+      this.definer = definer;
+    }
+
+    private static String getLineNumber(int lineNumber) {
+      // prep line number for output
+      return "<span style=color:#A0A0A0>" + lineNumber + ".</span>";
+    }
+
+    private static String cellText(int lineno, String s) {
+      return "<html>" + getLineNumber(lineno) + " " + s + "</html>";
+    }
+
     @Override
     public Component getListCellRendererComponent(
-      JList list, Object value, int index, boolean selected, boolean hasFocus) {
+            JList list, Object value, int index, boolean selected, boolean hasFocus) {
 
       // DO NOT pass value to super.getListCellRendererComponent()
       // It is incredibly inefficient for GamePieces and is not needed
       // since we overwrite the label text anyway.
       super.getListCellRendererComponent(list, "", index, selected, hasFocus);
-      if (value instanceof EditablePiece) {
-        setText(((EditablePiece) value).getDescription());
-      }
-      else {
-        final String s = value.getClass().getName();
-        setText(s.substring(s.lastIndexOf('.') + 1));
+
+      // For Pieces, bump index to 1
+      final int lineno = definer.isPrototype() ? index : index + 1;
+
+      // Prototype or MPL Template will be zero for first item and will be skipped (not a real trait)
+      if (lineno > 0) {
+        if (value instanceof EditablePiece) {     // Safety first
+
+          final String s = ConfigureTree.noHTML(((EditablePiece) value).getDescription());
+
+          if (value instanceof Comment) {
+            setText(cellText(lineno, "<b>/* " + s + " */"));
+          }
+          else {
+            setText(cellText(lineno, s));
+          }
+
+        }
+        else {
+          // Safety net for non-EditablePiece (probably redundant) - item will use last element of class name
+          final String s = value.getClass().getName();
+          setText(cellText(lineno, s.substring(s.lastIndexOf('.') + 1)));
+        }
       }
       return this;
     }
@@ -1494,5 +1527,12 @@ public class PieceDefiner extends JPanel {
     }
   }
 
+  /**
+   * Export a List of all the allowable traits
+   * @return
+   */
+  public List<GamePiece> getTraitList() {
+    return Collections.list(availableModel.elements());
+  }
 }
 

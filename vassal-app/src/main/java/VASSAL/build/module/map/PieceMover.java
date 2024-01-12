@@ -1156,9 +1156,6 @@ public class PieceMover extends AbstractBuildable
       comm = comm.append(doTrueMovedSupport(allDraggedPieces));
     }
 
-    // Handle any auto-attachment traits in any newly created pieces
-    comm = comm.append(GameModule.getGameModule().getGameState().getAttachmentManager().doAutoAttachments());
-
     // We've finished the actual drag and drop of pieces, so we now create any auto-report message that is appropriate.
     if (GlobalOptions.getInstance().autoReportEnabled()) {
       final Command report = createMovementReporter(comm).getReportCommand().append(new MovementReporter.HiddenMovementReporter(comm).getReportCommand());
@@ -1375,6 +1372,7 @@ public class PieceMover extends AbstractBuildable
     GameModule.getGameModule().sendAndLog(move); // Sends the command over the wire (and/or into the logfile)
     if (move != null) {
       DragBuffer.getBuffer().clear(); // If we did anything, clear the drag buffer, as the DnD operation is complete.
+      GameModule.getGameModule().refreshVisibleMaps(); // Force any changed labels to redisplay on visible maps.
     }
   }
 
@@ -2340,5 +2338,15 @@ public class PieceMover extends AbstractBuildable
       }
       setCargo(tempCargo);
     }
+  }
+
+  @Override
+  public boolean isMandatory() {
+    return true;
+  }
+
+  @Override
+  public boolean isUnique() {
+    return true;
   }
 }

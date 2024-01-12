@@ -35,7 +35,7 @@ import VASSAL.configure.BooleanConfigurer;
 import VASSAL.configure.ColorConfigurer;
 import VASSAL.configure.Configurer;
 import VASSAL.configure.ConfigurerFactory;
-import VASSAL.configure.FormattedStringConfigurer;
+import VASSAL.configure.FormattedExpressionConfigurer;
 import VASSAL.configure.HotKeyConfigurer;
 import VASSAL.configure.IntConfigurer;
 import VASSAL.configure.NamedHotKeyConfigurer;
@@ -1563,7 +1563,7 @@ public class CounterDetailViewer extends AbstractConfigurable implements Drawabl
   public static class EmptyFormatConfig implements ConfigurerFactory {
     @Override
     public Configurer getConfigurer(AutoConfigurable c, String key, String name) {
-      return new FormattedStringConfigurer(key, name, new String[] {
+      return new FormattedExpressionConfigurer(key, name, new String[] {
         BasicPiece.LOCATION_NAME,
         BasicPiece.CURRENT_MAP,
         BasicPiece.CURRENT_BOARD,
@@ -1574,7 +1574,7 @@ public class CounterDetailViewer extends AbstractConfigurable implements Drawabl
   public static class ReportFormatConfig implements ConfigurerFactory {
     @Override
     public Configurer getConfigurer(AutoConfigurable c, String key, String name) {
-      return new FormattedStringConfigurer(key, name, new String[] {
+      return new FormattedExpressionConfigurer(key, name, new String[] {
         BasicPiece.LOCATION_NAME,
         BasicPiece.CURRENT_MAP,
         BasicPiece.CURRENT_BOARD,
@@ -1585,7 +1585,9 @@ public class CounterDetailViewer extends AbstractConfigurable implements Drawabl
   public static class CounterFormatConfig implements ConfigurerFactory {
     @Override
     public Configurer getConfigurer(AutoConfigurable c, String key, String name) {
-      return new FormattedStringConfigurer(key, name, new String[] {BasicPiece.PIECE_NAME});
+      final Configurer configurer = new FormattedExpressionConfigurer(key, name, new String[] {BasicPiece.PIECE_NAME});
+      configurer.setContextLevel(Configurer.ContextLevel.PIECE);
+      return configurer;
     }
   }
 
@@ -2166,9 +2168,6 @@ public class CounterDetailViewer extends AbstractConfigurable implements Drawabl
     }
     else if (EMPTY_HEX_REPORT_FORMAT.equals(name)) {
       return () -> showText && minimumDisplayablePieces == 0;
-    }
-    else if (SHOW_MOVE_SELECTED.equals(name) || SHOW_NON_MOVABLE.equals(name)) {
-      return () -> showNoStack;
     }
     else if (List.of(SHOW_TERRAIN_WIDTH, SHOW_TERRAIN_HEIGHT, SHOW_TERRAIN_ZOOM, SHOW_TERRAIN_SNAPPY).contains(name)) {
       return () -> !NEVER.equals(showTerrainBeneath);

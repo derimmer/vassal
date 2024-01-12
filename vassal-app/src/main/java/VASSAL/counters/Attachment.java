@@ -69,8 +69,8 @@ public class Attachment extends Decorator implements TranslatablePiece, Recursio
     BEFORE_ATTACH_NOTHING, BEFORE_ATTACH_CLEAR
   };
   protected static final String[] BEFORE_ATTACH_KEYS = {
-    Resources.getString("Editor.Attachment.leave_existing"),
-    Resources.getString("Editor.Attachment.clear_existing"),
+    "Editor.Attachment.leave_existing",
+    "Editor.Attachment.clear_existing"
   };
 
 
@@ -81,9 +81,9 @@ public class Attachment extends Decorator implements TranslatablePiece, Recursio
     ON_ATTACH_NOTHING, ON_ATTACH_FOLLOW_BACK, ON_ATTACH_ATTACH_ALL
   };
   protected static final String[] ON_ATTACH_KEYS = {
-    Resources.getString("Editor.Attachment.no_additional_action"),
-    Resources.getString("Editor.Attachment.follow_back"),
-    Resources.getString("Editor.Attachment.attach_to_all")
+    "Editor.Attachment.no_additional_action",
+    "Editor.Attachment.follow_back",
+    "Editor.Attachment.attach_to_all"
   };
 
 
@@ -93,8 +93,8 @@ public class Attachment extends Decorator implements TranslatablePiece, Recursio
     ON_DETACH_NOTHING, ON_DETACH_REMOVE
   };
   protected static final String[] ON_DETACH_KEYS = {
-    Resources.getString("Editor.Attachment.no_additional_action"),
-    Resources.getString("Editor.Attachment.remove_incoming_attachment"),
+    "Editor.Attachment.no_additional_action",
+    "Editor.Attachment.remove_incoming_attachment",
   };
 
   protected String attachName;
@@ -121,7 +121,7 @@ public class Attachment extends Decorator implements TranslatablePiece, Recursio
   protected String onAttach = ON_ATTACH_NOTHING;
   protected String onDetach = ON_DETACH_NOTHING;
   protected String beforeAttach = BEFORE_ATTACH_CLEAR;
-  protected boolean allowSelfAttach = true;
+  protected boolean allowSelfAttach = false;
   protected boolean autoAttach = true;
 
   private KeyCommand myAttachCommand;
@@ -197,7 +197,7 @@ public class Attachment extends Decorator implements TranslatablePiece, Recursio
     onAttach = st.nextToken(ON_ATTACH_NOTHING);
     onDetach = st.nextToken(ON_DETACH_NOTHING);
     beforeAttach = st.nextToken(BEFORE_ATTACH_CLEAR);
-    allowSelfAttach = st.nextBoolean(true);
+    allowSelfAttach = st.nextBoolean(false);
     autoAttach = st.nextBoolean(true);
 
     command = null;
@@ -342,6 +342,13 @@ public class Attachment extends Decorator implements TranslatablePiece, Recursio
    */
   public Command clearAll() {
     Command c = new NullCommand();
+
+    // Auto-attachments are handled locally be each client with no Commands expected.
+    if (isAutoAttach()) {
+      contents.clear();
+      return c;
+    }
+
     if (contents.isEmpty()) {
       return c;
     }
@@ -357,37 +364,6 @@ public class Attachment extends Decorator implements TranslatablePiece, Recursio
 
     return c;
   }
-
-
-  /*
-  public void doAutoAttach(List<Attachment> attachments) {
-    for (final Attachment attach : attachments) {
-      if (!attach.isAutoAttach()) continue;
-      final GamePiece outer = Decorator.getOutermost(attach);
-      if (outer.getMap() == null) continue;
-
-      for (final Attachment attach2 : attachments) {
-        if (!attach2.isAutoAttach()) continue;
-        final GamePiece outer2 = Decorator.getOutermost(attach2);
-        if (outer.getMap() == null) continue;
-
-        // Don't attach to self if box not checked
-        if (attach.equals(attach2) && !attach.allowSelfAttach) continue;
-
-        // Auto-attach pieces all mutually attach to each other (if same attachment name, which is checked in AttachmentManager)
-
-        if (!attach.hasTarget(outer2)) {
-          attach.contents.add(outer2);
-        }
-
-        if (!attach2.hasTarget(outer)) {
-          attach2.contents.add(outer);
-        }
-      }
-    }
-  }
-  */
-
 
   public Command clearMatching() {
     final GamePiece outer = Decorator.getOutermost(this);
@@ -443,6 +419,22 @@ public class Attachment extends Decorator implements TranslatablePiece, Recursio
       final GamePiece piece = gs.getPieceForId(st.nextToken());
       //BR// getPieceForId can return null, and WILL during load-game if target piece hasn't loaded yet.
       if (piece != null) {
+        contents.add(piece);
+      }
+    }
+  }
+
+  /**
+   * Auto-attach to a piece
+   * 1. We must be in auto-attah mode
+   * 2. Must not already be attached to the piece.
+   * NOTE: Auto-attach is handled locally by each client, no Commands are generated
+   * @param attach Attachment trait within the target piece
+   */
+  public void autoAttach(Attachment attach) {
+    if (isAutoAttach() && attach.getAttachName().equals(getAttachName())) {
+      final GamePiece piece = Decorator.getOutermost(attach);
+      if (! hasTarget(piece)) {
         contents.add(piece);
       }
     }
@@ -639,7 +631,6 @@ public class Attachment extends Decorator implements TranslatablePiece, Recursio
     return null;
   }
 
-
   public String getAttachName() {
     return attachName;
   }
@@ -783,7 +774,10 @@ public class Attachment extends Decorator implements TranslatablePiece, Recursio
    */
   @Override
   public List<String> getPropertyNames() {
-    return Collections.emptyList();
+    final List<String> l = new ArrayList<>();
+    l.add(ATTACH_COUNT);
+    l.add(attachCountName);
+    return l;
   }
 
   public static class Ed implements PieceEditor {

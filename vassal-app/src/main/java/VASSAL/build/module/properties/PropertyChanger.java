@@ -25,7 +25,8 @@ package VASSAL.build.module.properties;
  * @author rkinney
  *
  */
-@FunctionalInterface
 public interface PropertyChanger {
-  String getNewValue(String oldValue);
+  default String getNewValue(String oldValue) {
+    return null;
+  }
 }

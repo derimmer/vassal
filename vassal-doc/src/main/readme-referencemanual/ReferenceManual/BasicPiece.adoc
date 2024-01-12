@@ -14,7 +14,7 @@ The image is optional, or different pieces can share the same image, but you sho
 Simple piece images can be created from scratch within Vassal using <<GamePieceImageDefinitions.adoc#top,Game Piece Image Definitions>>, but you will usually get a better result by loading images sourced from existing artwork or created with specialist graphics software.
 
 To give a piece more complex behaviors, you can add more Traits to it in the <<GamePiece.adoc#top,Piece Definer>> dialog.
-For example you could omit or remove the image from the Basic Piece and instead add a <<Layer.adoc#top,Layer>> trait to allow the piece to use multiple images.
+For example, you could omit or remove the image from the Basic Piece and instead add a <<Layer.adoc#top,Layer>> trait to allow the piece to use multiple images.
 
 [width="100%",cols="50%a,^50%a",]
 |===
@@ -36,6 +36,7 @@ image:images/BasicPiece2.png[]
 _Choosing an image that has already been loaded into the module._
 
 |===
+Back to <<GamePiece.adoc#Traits, Trait List>>
 
 '''''
 
@@ -58,6 +59,8 @@ If the piece is in a <<ZonedGrid.adoc#top,Zone>> in a Multi-Zone Grid, then whet
 * _Selected_ contains _true_ when the piece has been selected with the mouse
 * _PieceId_ contains a string that uniquely defines the source of the piece.
 All pieces sourced from the same <<PieceWindow.adoc#top,Game Piece Palette>> slot will have the same PieceId string.
+* _PieceUID_ contains a string that uniquely defines a piece. No two pieces will ever have the same PieceUID string. PieceUID's are re-allocated when a game is refreshed and so cannot be guaranteed to link pieces long-term and should only be used for short-term comparisons.
+* _UniqueID_ contains a string that uniquely defines a piece. No two pieces will ever have the same UniqueID string. UniqueID's *ARE* maintained across a Game Refresh and can be used for long-term comparisons between pieces.
 * _DrawingMouseover_ contains _true_ when a <<MouseOver.adoc#top, Mouseover Stack Viewer>> is currently being drawn, and contains _false_ otherwise.
 * _DrawingMouseoverIndex_ contains 2 when a <<MouseOver.adoc#top, Mouseover Stack Viewer>> is currently being drawn, and contains 1 otherwise. This can be used, e.g., in the _Follows Expression_ field of a <<Layer.adoc#top, Layer trait>> to draw a different image for the Mouseover than is normally used when drawing the piece on the map.
 

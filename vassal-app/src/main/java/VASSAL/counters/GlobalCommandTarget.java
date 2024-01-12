@@ -53,6 +53,7 @@ public class GlobalCommandTarget implements ConfigurerFactory, SearchTarget {
   protected FormattedStringExpression targetX;                // Specified X (for XY type)
   protected FormattedStringExpression targetY;                // Specified Y (for XY type)
   protected FormattedStringExpression targetAttachment;       // Specified Attachment Name (for CURATTCH type)
+  protected FormattedStringExpression targetAttachmentId;     // Specified Basic Name or Index (for CURATTCH type)
 
   protected boolean fastMatchProperty = false; // True if we're doing a Fast Match by property value (else next two values ignored)
   protected FormattedStringExpression targetProperty;         // Name/Key of Fast Match property
@@ -172,17 +173,18 @@ public class GlobalCommandTarget implements ConfigurerFactory, SearchTarget {
     setGKCtype(gkc);
 
     // Can't just let this shit be null => ANGRY ENCODER IS ANGRY!!!
-    targetMap        = new FormattedStringExpression("");
-    targetBoard      = new FormattedStringExpression("");
-    targetZone       = new FormattedStringExpression("");
-    targetLocation   = new FormattedStringExpression("");
-    targetDeck       = new FormattedStringExpression("");
-    targetProperty   = new FormattedStringExpression("");
-    targetValue      = new FormattedStringExpression("");
-    targetX          = new FormattedStringExpression("0");
-    targetY          = new FormattedStringExpression("0");
-    targetAttachment = new FormattedStringExpression("");
-    targetCompare    = CompareMode.EQUALS;
+    targetMap          = new FormattedStringExpression("");
+    targetBoard        = new FormattedStringExpression("");
+    targetZone         = new FormattedStringExpression("");
+    targetLocation     = new FormattedStringExpression("");
+    targetDeck         = new FormattedStringExpression("");
+    targetProperty     = new FormattedStringExpression("");
+    targetValue        = new FormattedStringExpression("");
+    targetX            = new FormattedStringExpression("0");
+    targetY            = new FormattedStringExpression("0");
+    targetAttachment   = new FormattedStringExpression("");
+    targetAttachmentId = new FormattedStringExpression("");
+    targetCompare      = CompareMode.EQUALS;
   }
 
   public GlobalCommandTarget(String s) {
@@ -213,7 +215,8 @@ public class GlobalCommandTarget implements ConfigurerFactory, SearchTarget {
       .append(targetProperty.getExpression())
       .append(targetValue.getExpression())
       .append(targetCompare.name())
-      .append(targetAttachment.getExpression());
+      .append(targetAttachment.getExpression())
+      .append(targetAttachmentId.getExpression());
 
     return se.getValue();
   }
@@ -242,6 +245,7 @@ public class GlobalCommandTarget implements ConfigurerFactory, SearchTarget {
     final String compare = sd.nextToken(CompareMode.EQUALS.name());
     targetCompare = compare.isEmpty() ? CompareMode.EQUALS : CompareMode.valueOf(compare);
     targetAttachment = new FormattedStringExpression(sd.nextToken(""));
+    targetAttachmentId = new FormattedStringExpression(sd.nextToken(""));
   }
 
   /**
@@ -289,6 +293,7 @@ public class GlobalCommandTarget implements ConfigurerFactory, SearchTarget {
       // Target attachment may be blank, indicating all attachments
       else if (targetType == Target.CURATTACH && !targetAttachment.getExpression().isBlank()) {
         expList.add(targetAttachment.getExpression());
+        expList.add(targetAttachmentId.getExpression());
       }
     }
 
@@ -329,10 +334,11 @@ public class GlobalCommandTarget implements ConfigurerFactory, SearchTarget {
    */
   @Override
   public List<String> getPropertyList() {
+    final ArrayList<String> l = new ArrayList<>();
     if (fastMatchProperty) {
-      return List.of(targetProperty.getExpression());
+      l.add(targetProperty.getExpression());
     }
-    return Collections.emptyList();
+    return l;
   }
 
   // Welcome to Getters-and-Setters HELL!
@@ -504,6 +510,14 @@ public class GlobalCommandTarget implements ConfigurerFactory, SearchTarget {
 
   public void setTargetAttachment(String targetAttachment) {
     this.targetAttachment = new FormattedStringExpression(targetAttachment);
+  }
+
+  public FormattedStringExpression getTargetAttachmentId() {
+    return targetAttachmentId;
+  }
+
+  public void setTargetAttachmentId(String targetAttachmentId) {
+    this.targetAttachmentId = new FormattedStringExpression(targetAttachmentId);
   }
 
   public void setCurPiece(GamePiece curPiece) {

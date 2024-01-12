@@ -68,9 +68,9 @@ public class Deselect extends Decorator implements TranslatablePiece {
   };
   // Actual valued recorded for Destination option
   protected static final String[] DESELECT_KEYS = {
-    Resources.getString("Editor.Deselect.deselect_this_piece"),
-    Resources.getString("Editor.Deselect.deselect_all_pieces"),
-    Resources.getString("Editor.Deselect.select_only_this_piece")
+    "Editor.Deselect.deselect_this_piece",
+    "Editor.Deselect.deselect_all_pieces",
+    "Editor.Deselect.select_only_this_piece"
   };
 
 
@@ -304,9 +304,7 @@ public class Deselect extends Decorator implements TranslatablePiece {
    */
   @Override
   public List<String> getPropertyNames() {
-    final ArrayList<String> l = new ArrayList<>();
-    l.add(Properties.SELECTED);
-    return l;
+    return new ArrayList<>();
   }
 
   /**

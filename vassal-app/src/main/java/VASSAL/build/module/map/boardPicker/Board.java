@@ -38,11 +38,15 @@ import VASSAL.i18n.Resources;
 import VASSAL.tools.ErrorDialog;
 import VASSAL.tools.image.ImageIOException;
 import VASSAL.tools.image.ImageTileSource;
+import VASSAL.tools.imageop.FixedScaleOpBitmapImpl;
+import VASSAL.tools.imageop.FixedScaleOpTiledBitmapImpl;
 import VASSAL.tools.imageop.ImageOp;
 import VASSAL.tools.imageop.Op;
 import VASSAL.tools.imageop.Repainter;
 import VASSAL.tools.imageop.ScaleOp;
 import VASSAL.tools.imageop.SourceOp;
+import VASSAL.tools.imageop.SourceOpTiledBitmapImpl;
+import VASSAL.tools.imageop.SVGOp;
 
 import org.jdesktop.animation.timing.Animator;
 import org.jdesktop.animation.timing.TimingTargetAdapter;
@@ -59,6 +63,7 @@ import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.Arrays;
@@ -338,11 +343,24 @@ public class Board extends AbstractConfigurable implements GridContainer {
                          Rectangle visibleRect,
                          double zoom,
                          final Component obs) {
-    zoom *= magnification;
-    final Rectangle bounds =
-      new Rectangle(location.x, location.y,
-                    Math.round(boundaries.width * (float) zoom),
-                    Math.round(boundaries.height * (float) zoom));
+    drawRegion2D(g, location, visibleRect, zoom, obs);
+  }
+
+  public void drawRegion2D(final Graphics g,
+                           final Point2D location,
+                           Rectangle visibleRect,
+                           double zoom,
+                           final Component obs) {
+
+    final int lx = (int) Math.floor(location.getX());
+    final int ly = (int) Math.floor(location.getY());
+
+    final Rectangle bounds = new Rectangle(
+      lx,
+      ly,
+      (int) Math.floor(location.getX() + boundaries.width * zoom) - lx,
+      (int) Math.floor(location.getY() + boundaries.height * zoom) - ly
+    );
 
     if (!visibleRect.intersects(bounds)) {
       return;
@@ -353,6 +371,11 @@ public class Board extends AbstractConfigurable implements GridContainer {
 
     visibleRect = visibleRect.intersection(bounds);
 
+    // location and boundaries already have magnification applied to them,
+    // so don't adjust the zoom for magnification until after we've set
+    // the bounds.
+    zoom *= magnification;
+
     ImageOp op;
     if (boardImageOp != null) {
       if (zoom == 1.0 && !reversed) {
@@ -360,7 +383,15 @@ public class Board extends AbstractConfigurable implements GridContainer {
       }
       else {
         if (scaledImageOp == null || scaledImageOp.getScale() != zoom) {
-          scaledImageOp = Op.scale(boardImageOp, zoom);
+          if (boardImageOp instanceof SVGOp) {
+            scaledImageOp = Op.scale(boardImageOp, zoom);
+          }
+          else if (boardImageOp instanceof SourceOpTiledBitmapImpl) {
+            scaledImageOp = new FixedScaleOpTiledBitmapImpl(boardImageOp, zoom, bounds.width, bounds.height);
+          }
+          else {
+            scaledImageOp = new FixedScaleOpBitmapImpl(boardImageOp, zoom, bounds.width, bounds.height);
+          }
         }
         op = reversed ? Op.rotate(scaledImageOp, 180) : scaledImageOp;
       }
@@ -373,8 +404,8 @@ public class Board extends AbstractConfigurable implements GridContainer {
       op = new GridOp(op, grid, zoom, reversed, g2d.getRenderingHints());
     }
 
-    final Rectangle r = new Rectangle(visibleRect.x - location.x,
-                                      visibleRect.y - location.y,
+    final Rectangle r = new Rectangle(visibleRect.x - lx,
+                                      visibleRect.y - ly,
                                       visibleRect.width,
                                       visibleRect.height);
     final int ow = op.getTileWidth();
@@ -383,12 +414,12 @@ public class Board extends AbstractConfigurable implements GridContainer {
     final Point[] tiles = op.getTileIndices(r);
     for (final Point tile : tiles) {
       // find tile position
-      final int tx = location.x + tile.x * ow;
-      final int ty = location.y + tile.y * oh;
+      final int tx = lx + tile.x * ow;
+      final int ty = ly + tile.y * oh;
 
       // find actual tile size
-      final int tw = Math.min(ow, location.x + bounds.width - tx);
-      final int th = Math.min(oh, location.y + bounds.height - ty);
+      final int tw = Math.min(ow, lx + bounds.width - tx);
+      final int th = Math.min(oh, ly + bounds.height - ty);
 
       // find position in component
       final int cx = (int)(tx / os_scale);

@@ -20,8 +20,16 @@ package VASSAL.counters;
 import VASSAL.build.module.Map;
 import VASSAL.build.module.documentation.HelpFile;
 import VASSAL.build.module.map.MassKeyCommand;
+import VASSAL.build.module.properties.EnumeratedPropertyPrompt;
+import VASSAL.build.module.properties.IncrementProperty;
 import VASSAL.build.module.properties.PropertyChanger;
 import VASSAL.build.module.properties.PropertyPrompt;
+import VASSAL.build.module.properties.PropertySetter;
+import VASSAL.build.module.properties.RemoteEnumeratedPropertyPrompt;
+import VASSAL.build.module.properties.RemoteIncrementProperty;
+import VASSAL.build.module.properties.RemotePropertyChanger;
+import VASSAL.build.module.properties.RemotePropertyPrompt;
+import VASSAL.build.module.properties.RemotePropertySetter;
 import VASSAL.command.ChangeTracker;
 import VASSAL.command.Command;
 import VASSAL.command.NullCommand;
@@ -48,6 +56,8 @@ import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -66,9 +76,10 @@ public class SetPieceProperty extends DynamicProperty implements RecursionLimite
   protected GlobalSetter globalSetter;
   protected PropertyExpression propertiesFilter;
   protected boolean restrictRange;
-  protected boolean fixedRange = true;
+  protected boolean fixedRange;
   protected int range;
   protected String rangeProperty = "";
+  protected boolean overrideConstraints;
 
   protected Decorator dec;
 
@@ -134,6 +145,7 @@ public class SetPieceProperty extends DynamicProperty implements RecursionLimite
     fixedRange = sd.nextBoolean(true);
     rangeProperty = sd.nextToken("");
     globalSetter.setSelectFromDeckExpression(sd.nextToken("-1"));
+    overrideConstraints = sd.nextBoolean(false);
   }
 
   @Override
@@ -150,6 +162,8 @@ public class SetPieceProperty extends DynamicProperty implements RecursionLimite
     se.append(fixedRange);
     se.append(rangeProperty);
     se.append(globalSetter.getSelectFromDeckExpression());
+    se.append(overrideConstraints);
+
     return ID + se.getValue();
   }
 
@@ -218,14 +232,22 @@ public class SetPieceProperty extends DynamicProperty implements RecursionLimite
   }
 
   @Override
+  public List<String> getPropertyNames() {
+    // This is not a real Property source, so don't return the property name
+    return Collections.emptyList();
+  }
+
+  @Override
   public HelpFile getHelpFile() {
     return HelpFile.getReferenceManualPage("SetPieceProperty.html"); // NON-NLS
   }
 
   // These are used to provide makeSetTargetCommand with the context of what we're doing up in myKeyEvent
   private String propName;
-  private PropertyChanger changer = null;
+  private RemotePropertyChanger changer = null;
   private String newValue = null;
+  private boolean cancelled;
+  private DynamicProperty currentDPTarget = null;
 
   /**
    * Our filter has found a matching piece. Check it for a matching Dynamic Property and if found apply our setter.
@@ -233,7 +255,11 @@ public class SetPieceProperty extends DynamicProperty implements RecursionLimite
    * @return command to reproduce any work we do here
    */
   public Command makeSetTargetCommand(GamePiece p) {
+
     Command comm = new NullCommand();
+
+    // User pressed Cancel?
+    if (cancelled) return comm;
 
     while (p instanceof Decorator) {
       // Compare class directly, not via instanceof as we need to exclude all subclasses
@@ -242,12 +268,16 @@ public class SetPieceProperty extends DynamicProperty implements RecursionLimite
 
         if (propName.equals(currentDP.getKey())) {
           if ((newValue == null) || !(changer instanceof PropertyPrompt)) {
-            newValue = changer.getNewValue(currentDP.value);
-            // The PropertyChanger has already evaluated any Beanshell, only need to handle any remaining $$variables.
-            if (newValue.indexOf('$') >= 0) {
-              format.setFormat(newValue);
-              newValue = format.getText(this, this, "Editor.PropertyChangeConfigurer.new_value");
+            currentDPTarget = currentDP;
+            final String userValue = changer.getNewValue(currentDP, this, Decorator.getOutermost(this));
+
+            // A changer only returns null if the user pressed cancel in a Prompt or List dialog.
+            // This is callback, so just record that cancel has been pressed and get out of here.
+            if (userValue == null) {
+              cancelled = true;
+              return comm;
             }
+            newValue = userValue;
           }
 
           final ChangeTracker ct = new ChangeTracker(currentDP);
@@ -280,8 +310,9 @@ public class SetPieceProperty extends DynamicProperty implements RecursionLimite
       if (keyCommand.matches(stroke)) {
         // Evaluate the property name expression & initialize the context information for makeSetTargetCommand
         propName = (new FormattedString(key)).getText(Decorator.getOutermost(this), this, "Editor.SetPieceProperty.property_name");
-        changer  = keyCommand.propChanger;
+        changer  = createRemotePropertyChanger(keyCommand.propChanger);
         newValue = null;
+        cancelled = false;
 
         // Make piece properties filter
         final AuditTrail audit = AuditTrail.create(this, propertiesFilter.getExpression(), Resources.getString("Editor.SetPieceProperty.matching_properties"));
@@ -311,6 +342,55 @@ public class SetPieceProperty extends DynamicProperty implements RecursionLimite
     return comm;
   }
 
+  /**
+   * Create a Remote version of a PropertyChanger that will operate sensibly on a DP in a remote piece
+   * @param changer Local propertyChanger
+   * @return        Remote PropertyChanger
+   */
+  public RemotePropertyChanger createRemotePropertyChanger(PropertyChanger changer) {
+    if (changer instanceof PropertySetter) {
+      return new RemotePropertySetter((PropertySetter) changer);
+    }
+    else if (changer instanceof IncrementProperty) {
+      return new RemoteIncrementProperty((IncrementProperty) changer);
+    }
+    else if (changer instanceof EnumeratedPropertyPrompt) {
+      return new RemoteEnumeratedPropertyPrompt((EnumeratedPropertyPrompt) changer);
+    }
+    else if (changer instanceof PropertyPrompt) {
+      return new RemotePropertyPrompt((PropertyPrompt) changer);
+    }
+    return null;
+  }
+
+  //
+  // The following 4 overrides are called when the PropertyChanger is activated to determine
+  // the numeric constraints to follow when applying the change to a specific remote DP.
+  // If this trait is not overriding the numeric constraints, then use the constraints of the
+  // target DP.
+  // NOTE: Constraints.getPropertySource() is not overridden, it is handled separately by the
+  //       Remote Property Setters.
+  //
+  @Override
+  public int getMaximumValue() {
+    return (overrideConstraints || currentDPTarget == null) ? super.getMaximumValue() : currentDPTarget.getMaximumValue();
+  }
+
+  @Override
+  public int getMinimumValue() {
+    return (overrideConstraints || currentDPTarget == null)  ? super.getMinimumValue() : currentDPTarget.getMinimumValue();
+  }
+
+  @Override
+  public boolean isNumeric() {
+    return (overrideConstraints || currentDPTarget == null)  ? super.isNumeric() : currentDPTarget.isNumeric();
+  }
+
+  @Override
+  public boolean isWrap() {
+    return (overrideConstraints || currentDPTarget == null)  ? super.isWrap() : currentDPTarget.isWrap();
+  }
+
   @Override
   public PieceEditor getEditor() {
     return new Ed(this);
@@ -331,12 +411,15 @@ public class SetPieceProperty extends DynamicProperty implements RecursionLimite
     if (! Objects.equals(range, c.range)) return false;
     if (! Objects.equals(fixedRange, c.fixedRange)) return false;
     if (! Objects.equals(rangeProperty, c.rangeProperty)) return false;
+    if (! Objects.equals(overrideConstraints, c.overrideConstraints)) return false;
     return Objects.equals(globalSetter.getSelectFromDeckExpression(), c.globalSetter.getSelectFromDeckExpression());
   }
 
   protected static class Ed implements PieceEditor {
     protected StringConfigurer descConfig;
     protected FormattedExpressionConfigurer nameConfig;
+    protected BooleanConfigurer overrideConfig;
+    protected JLabel numericLabel;
     protected BooleanConfigurer numericConfig;
     protected JLabel minLabel;
     protected IntConfigurer minConfig;
@@ -381,8 +464,12 @@ public class SetPieceProperty extends DynamicProperty implements RecursionLimite
       nameConfig.setHintKey("Editor.SetPieceProperty.property_name_hint");
       controls.add("Editor.SetPieceProperty.property_name", nameConfig);
 
+      overrideConfig = new BooleanConfigurer(m.overrideConstraints);
+      controls.add("Editor.SetPieceProperty.override_constraints", overrideConfig);
+
+      numericLabel = new JLabel(Resources.getString("Editor.DynamicProperty.is_numeric"));
       numericConfig = new BooleanConfigurer(m.isNumeric());
-      controls.add("Editor.DynamicProperty.is_numeric", numericConfig);
+      controls.add(numericLabel, numericConfig);
 
       minLabel = new JLabel(Resources.getString("Editor.GlobalProperty.minimum_value"));
       minConfig = new IntConfigurer(m.getMinimumValue());
@@ -428,16 +515,21 @@ public class SetPieceProperty extends DynamicProperty implements RecursionLimite
 
       controls.add("Editor.DynamicProperty.key_commands", keyCommandListConfig);
 
-      numericConfig.addPropertyChangeListener(evt -> {
+      final PropertyChangeListener nl = evt -> {
+        final boolean isOverride = overrideConfig.booleanValue();
         final boolean isNumeric = numericConfig.booleanValue();
-        minConfig.getControls().setVisible(isNumeric);
-        minLabel.setVisible(isNumeric);
-        maxConfig.getControls().setVisible(isNumeric);
-        maxLabel.setVisible(isNumeric);
-        wrapConfig.getControls().setVisible(isNumeric);
-        wrapLabel.setVisible(isNumeric);
+        numericLabel.setVisible(isOverride);
+        numericConfig.getControls().setVisible(isOverride);
+        minConfig.getControls().setVisible(isOverride && isNumeric);
+        minLabel.setVisible(isOverride && isNumeric);
+        maxConfig.getControls().setVisible(isOverride && isNumeric);
+        maxLabel.setVisible(isOverride && isNumeric);
+        wrapConfig.getControls().setVisible(isOverride && isNumeric);
+        wrapLabel.setVisible(isOverride && isNumeric);
         keyCommandListConfig.repack();
-      });
+      };
+      overrideConfig.addPropertyChangeListener(nl);
+      numericConfig.addPropertyChangeListener(nl);
 
       numericConfig.fireUpdate();
 
@@ -458,6 +550,7 @@ public class SetPieceProperty extends DynamicProperty implements RecursionLimite
 
       restrictRange.addPropertyChangeListener(pl);
       fixedRange.addPropertyChangeListener(pl);
+      fixedRange.fireUpdate();
 
       pl.propertyChange(null);
     }
@@ -491,6 +584,7 @@ public class SetPieceProperty extends DynamicProperty implements RecursionLimite
       se.append(fixedRange.getValueString());
       se.append(rangeProperty.getValueString());
       se.append(deckPolicy.getValueString());
+      se.append(overrideConfig.getValueString());
 
       return ID + se.getValue();
     }
